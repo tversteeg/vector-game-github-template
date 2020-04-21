@@ -20,7 +20,7 @@ impl Game {
     /// Setup the ECS and load the systems.
     pub fn new(ctx: &mut Context) -> Result<Self> {
         // Setup the OpenGL render part
-        let render = Render::new(ctx, WIDTH, HEIGHT);
+        let render = Render::new(ctx);
 
         Ok(Self { render })
     }
