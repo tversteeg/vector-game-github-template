@@ -1,6 +1,6 @@
 mod render;
 
-use crate::render::{Mesh, Render};
+use crate::render::Render;
 use anyhow::Result;
 use lyon::{
     extra::rust_logo::build_logo_path,
@@ -20,10 +20,6 @@ const HEIGHT: usize = 600;
 struct Game {
     /// Our wrapper around the OpenGL calls.
     render: Render,
-    /// The mesh for the Rust logo.
-    logo_mesh: Mesh,
-    /// Instances for our logo.
-    instances: Vec<Vec2>,
 }
 
 impl Game {
@@ -37,25 +33,18 @@ impl Game {
         build_logo_path(&mut builder);
         let logo_mesh = render.upload(builder.build().iter());
 
-        let mut instances = vec![Vec2::zero(); 200 * 200];
         for x in -100..100 {
             for y in -100..100 {
-                instances.push(Vec2::new(x as f64 * 100.0, y as f64 * 100.0));
+                logo_mesh.add_instance(Vec2::new(x as f64 * 100.0, y as f64 * 100.0));
             }
         }
 
-        Ok(Self {
-            render,
-            logo_mesh,
-            instances,
-        })
+        Ok(Self { render })
     }
 }
 
 impl EventHandler for Game {
-    fn update(&mut self, _ctx: &mut Context) {
-        self.logo_mesh.draw_instances(&self.instances);
-    }
+    fn update(&mut self, _ctx: &mut Context) {}
 
     fn draw(&mut self, ctx: &mut Context) {
         // Render the buffer

@@ -24,18 +24,20 @@ impl Mesh {
     /// Render an instance of this mesh.
     ///
     /// Pretty slow because it needs to unlock the mutex. If possible use `draw_instances` instead.
-    pub fn draw_instance(&self, pos: Vec2) {
+    pub fn add_instance(&self, pos: Vec2) {
         let mut dc = self.0.lock().unwrap();
 
         dc.instances.push(Instance {
             position: [pos.x as f32, pos.y as f32],
         });
-
         assert!(dc.instances.len() < MAX_MESH_INSTANCES);
+
+        // Tell the render loop that the data is out of date
+        dc.refresh_instances = true;
     }
 
     /// Render a list of instances of this mesh.
-    pub fn draw_instances(&self, pos: &Vec<Vec2>) {
+    pub fn overwrite_instances(&self, pos: &Vec<Vec2>) {
         let mut dc = self.0.lock().unwrap();
 
         dc.instances = pos
@@ -44,8 +46,18 @@ impl Mesh {
                 position: [pos.x as f32, pos.y as f32],
             })
             .collect();
-
         assert!(dc.instances.len() < MAX_MESH_INSTANCES);
+
+        // Tell the render loop that the data is out of date
+        dc.refresh_instances = true;
+    }
+
+    /// Remove all instances.
+    pub fn clear_instances(&self) {
+        let mut dc = self.0.lock().unwrap();
+
+        dc.instances.clear();
+        dc.refresh_instances = true;
     }
 }
 
@@ -123,6 +135,7 @@ impl Render {
             bindings: None,
             instances: vec![],
             instance_positions: vec![],
+            refresh_instances: false,
         }));
         self.draw_calls.push(draw_call.clone());
 
@@ -137,24 +150,25 @@ impl Render {
     pub fn render(&mut self, ctx: &mut Context) {
         let (width, height) = ctx.screen_size();
 
-        // Create the bindings if they don't exist
-        if self.missing_bindings {
-            self.draw_calls
-                .iter_mut()
-                .filter(|dc| dc.lock().unwrap().bindings.is_none())
-                .for_each(|dc| dc.lock().unwrap().create_bindings(ctx));
-
-            self.missing_bindings = false;
-        }
-
-        // Update the instance vertices
+        // Create bindings & update the instance vertices if necessary
         self.draw_calls.iter().for_each(|dc| {
-            let dc = dc.lock().unwrap();
-            let bindings = dc.bindings.as_ref().unwrap();
+            let mut dc = dc.lock().unwrap();
 
-            // Upload the instance positions
-            bindings.vertex_buffers[1].update(ctx, &dc.instances);
+            // Create bindings if missing
+            if self.missing_bindings && dc.bindings.is_none() {
+                dc.create_bindings(ctx);
+            }
+
+            if dc.refresh_instances {
+                // Upload the instance positions
+                let bindings = dc.bindings.as_ref().unwrap();
+                bindings.vertex_buffers[1].update(ctx, &dc.instances);
+
+                dc.refresh_instances = false;
+            }
         });
+
+        self.missing_bindings = false;
 
         // Start rendering
         ctx.begin_default_pass(PassAction::Nothing);
@@ -177,9 +191,6 @@ impl Render {
                 resolution: (width, height),
             });
             ctx.draw(0, dc.indices.len() as i32, dc.instances.len() as i32);
-
-            // Remove all instances for this frame
-            dc.instances.clear();
         }
 
         ctx.end_render_pass();
@@ -201,6 +212,8 @@ struct DrawCall {
     bindings: Option<Bindings>,
     /// List of instances to render.
     instances: Vec<Instance>,
+    /// Whether the instance information should be reuploaded to the GPU.
+    refresh_instances: bool,
 }
 
 impl DrawCall {
