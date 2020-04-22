@@ -11,14 +11,16 @@ attribute vec2 pos;
 uniform vec2 resolution;
 
 void main() {
-    gl_Position = vec4(pos + resolution, 0, 1);
+    vec2 world_pos = pos / (vec2(0.5, -0.5) * resolution);
+
+    gl_Position = vec4(world_pos, 0.0, 1.0);
 }
 "#;
 
 const FRAGMENT: &str = r#"#version 100
 
 void main() {
-    gl_FragColor = vec4(1.0, 0.0, 0.0, 0.0);
+    gl_FragColor = vec4(1.0, 0.0, 0.0, 1.0);
 }"#;
 
 const META: ShaderMeta = ShaderMeta {
@@ -29,15 +31,13 @@ const META: ShaderMeta = ShaderMeta {
 };
 
 #[repr(C)]
-#[derive(Copy, Clone, Default)]
+#[derive(Debug, Copy, Clone, Default)]
 struct Vertex {
     pos: [f32; 2],
-    normal: [f32; 2],
-    prim_id: i32,
 }
 
 #[repr(C)]
-#[derive(Copy, Clone)]
+#[derive(Debug, Copy, Clone)]
 struct Primitive {
     color: [f32; 4],
     translate: [f32; 2],
@@ -46,10 +46,12 @@ struct Primitive {
 }
 
 #[repr(C)]
+#[derive(Debug)]
 struct Uniforms {
     resolution: (f32, f32),
 }
 
+#[derive(Debug)]
 struct DrawCall {
     vertices: Vec<Vertex>,
     indices: Vec<u16>,
@@ -81,7 +83,10 @@ impl DrawCall {
 /// A wrapper around the OpenGL calls so the main file won't be polluted.
 pub struct Render {
     pipeline: Pipeline,
+    /// A list of draw calls with bindings that will be generated.
     draw_calls: Vec<DrawCall>,
+    /// Whether some draw calls are missing bindings.
+    missing_bindings: bool,
 }
 
 impl Render {
@@ -99,6 +104,7 @@ impl Render {
         Self {
             pipeline,
             draw_calls: vec![],
+            missing_bindings: false,
         }
     }
 
@@ -132,6 +138,9 @@ impl Render {
             indices,
             bindings: None,
         });
+
+        // Tell the next render loop to create bindings for this
+        self.missing_bindings = true;
     }
 
     /// Render the graphics.
@@ -142,14 +151,24 @@ impl Render {
         let (width, height) = ctx.screen_size();
 
         // Create the bindings if they don't exist
-        self.draw_calls
-            .iter_mut()
-            .filter(|dc| dc.bindings.is_none())
-            .for_each(|dc| dc.create_bindings(ctx));
+        if self.missing_bindings {
+            self.draw_calls
+                .iter_mut()
+                .filter(|dc| dc.bindings.is_none())
+                .for_each(|dc| dc.create_bindings(ctx));
 
+            self.missing_bindings = false;
+        }
+
+        // Render the separate draw calls
         for dc in self.draw_calls.iter_mut() {
+            let bindings = dc.bindings.as_ref().unwrap();
+            bindings.vertex_buffers[0].update(ctx, &dc.vertices);
+            bindings.index_buffer.update(ctx, &dc.indices);
+
             ctx.apply_pipeline(&self.pipeline);
-            ctx.apply_bindings(dc.bindings.as_ref().unwrap());
+            ctx.apply_scissor_rect(0, 0, width as i32, height as i32);
+            ctx.apply_bindings(bindings);
             ctx.apply_uniforms(&Uniforms {
                 resolution: (width, height),
             });

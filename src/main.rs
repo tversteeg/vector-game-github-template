@@ -2,9 +2,13 @@ mod render;
 
 use crate::render::Render;
 use anyhow::Result;
+use lyon::{
+    extra::rust_logo::build_logo_path,
+    path::{builder::Build, Path},
+};
 use miniquad::{
     conf::{Conf, Loading},
-    Context, EventHandler, KeyCode, KeyMods, UserData,
+    Context, EventHandler, UserData,
 };
 
 const WIDTH: usize = 800;
@@ -20,7 +24,12 @@ impl Game {
     /// Setup the ECS and load the systems.
     pub fn new(ctx: &mut Context) -> Result<Self> {
         // Setup the OpenGL render part
-        let render = Render::new(ctx);
+        let mut render = Render::new(ctx);
+
+        // Build a Path for the rust logo.
+        let mut builder = Path::builder().with_svg();
+        build_logo_path(&mut builder);
+        render.upload(builder.build().iter());
 
         Ok(Self { render })
     }
