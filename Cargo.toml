@@ -17,6 +17,7 @@ is-it-maintained-open-issues = { repository = "tversteeg/replace_me" }
 
 [dependencies]
 anyhow = "1.0.28"
+hibitset = "0.6.3"
 legion = "0.2.1"
 lyon = { version = "0.15.6", features = ["extra"] }
 miniquad = "0.2.55"

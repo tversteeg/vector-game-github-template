@@ -4,79 +4,48 @@ use lyon::{
     tessellation::{BuffersBuilder, FillAttributes, FillOptions, FillTessellator, VertexBuffers},
 };
 use miniquad::{graphics::*, Context};
-
-const VERTEX: &str = r#"#version 100
-attribute vec2 pos;
-
-uniform vec2 resolution;
-
-void main() {
-    vec2 world_pos = pos / (vec2(0.5, -0.5) * resolution);
-
-    gl_Position = vec4(world_pos, 0.0, 1.0);
-}
-"#;
-
-const FRAGMENT: &str = r#"#version 100
-
-void main() {
-    gl_FragColor = vec4(1.0, 0.0, 0.0, 1.0);
-}"#;
-
-const META: ShaderMeta = ShaderMeta {
-    images: &[],
-    uniforms: UniformBlockLayout {
-        uniforms: &[("resolution", UniformType::Float2)],
-    },
+use std::{
+    mem,
+    sync::{Arc, Mutex},
 };
 
-#[repr(C)]
-#[derive(Debug, Copy, Clone, Default)]
-struct Vertex {
-    pos: [f32; 2],
-}
+type Vec2 = vek::Vec2<f64>;
 
-#[repr(C)]
-#[derive(Debug, Copy, Clone)]
-struct Primitive {
-    color: [f32; 4],
-    translate: [f32; 2],
-    z_index: i32,
-    width: f32,
-}
+const MAX_MESH_INSTANCES: usize = 1024 * 1024;
 
-#[repr(C)]
-#[derive(Debug)]
-struct Uniforms {
-    resolution: (f32, f32),
-}
+/// A reference to an uploaded vector path.
+///
+/// This contains an atomic reference counted mutex, which will unload the mesh from VRAM when
+/// destructed.
+#[derive(Debug, Clone)]
+pub struct Mesh(Arc<Mutex<DrawCall>>);
 
-#[derive(Debug)]
-struct DrawCall {
-    vertices: Vec<Vertex>,
-    indices: Vec<u16>,
-    bindings: Option<Bindings>,
-}
+impl Mesh {
+    /// Render an instance of this mesh.
+    ///
+    /// Pretty slow because it needs to unlock the mutex. If possible use `draw_instances` instead.
+    pub fn draw_instance(&self, pos: Vec2) {
+        let mut dc = self.0.lock().unwrap();
 
-impl DrawCall {
-    /// Create bindings if they are missing.
-    pub fn create_bindings(&mut self, ctx: &mut Context) {
-        let vertex_buffer = Buffer::stream(
-            ctx,
-            BufferType::VertexBuffer,
-            self.vertices.len() * std::mem::size_of::<Vertex>(),
-        );
-        let index_buffer = Buffer::stream(
-            ctx,
-            BufferType::IndexBuffer,
-            self.indices.len() * std::mem::size_of::<u16>(),
-        );
-        let bindings = Bindings {
-            vertex_buffers: vec![vertex_buffer],
-            index_buffer,
-            images: vec![],
-        };
-        self.bindings = Some(bindings);
+        dc.instances.push(Instance {
+            position: [pos.x as f32, pos.y as f32],
+        });
+
+        assert!(dc.instances.len() < MAX_MESH_INSTANCES);
+    }
+
+    /// Render a list of instances of this mesh.
+    pub fn draw_instances(&self, pos: &Vec<Vec2>) {
+        let mut dc = self.0.lock().unwrap();
+
+        dc.instances = pos
+            .iter()
+            .map(|pos| Instance {
+                position: [pos.x as f32, pos.y as f32],
+            })
+            .collect();
+
+        assert!(dc.instances.len() < MAX_MESH_INSTANCES);
     }
 }
 
@@ -84,7 +53,10 @@ impl DrawCall {
 pub struct Render {
     pipeline: Pipeline,
     /// A list of draw calls with bindings that will be generated.
-    draw_calls: Vec<DrawCall>,
+    ///
+    /// The draw calls are wrapped in a `Arc<Mutex<_>>` construction so it can be passed safely as
+    /// a reference.
+    draw_calls: Vec<Arc<Mutex<DrawCall>>>,
     /// Whether some draw calls are missing bindings.
     missing_bindings: bool,
 }
@@ -93,11 +65,20 @@ impl Render {
     /// Setup the OpenGL pipeline and the texture for the framebuffer.
     pub fn new(ctx: &mut Context) -> Self {
         // Create an OpenGL pipeline
-        let shader = Shader::new(ctx, VERTEX, FRAGMENT, META);
+        let shader = Shader::new(ctx, shader::VERTEX, shader::FRAGMENT, shader::META);
         let pipeline = Pipeline::new(
             ctx,
-            &[BufferLayout::default()],
-            &[VertexAttribute::new("pos", VertexFormat::Float2)],
+            &[
+                BufferLayout::default(),
+                BufferLayout {
+                    step_func: VertexStep::PerInstance,
+                    ..Default::default()
+                },
+            ],
+            &[
+                VertexAttribute::with_buffer("pos", VertexFormat::Float2, 0),
+                VertexAttribute::with_buffer("inst_pos", VertexFormat::Float2, 1),
+            ],
             shader,
         );
 
@@ -108,7 +89,10 @@ impl Render {
         }
     }
 
-    pub fn upload<P>(&mut self, path: P)
+    /// Upload a lyon path.
+    ///
+    /// Returns a reference that can be used to add instances.
+    pub fn upload<P>(&mut self, path: P) -> Mesh
     where
         P: IntoIterator<Item = PathEvent>,
     {
@@ -133,38 +117,58 @@ impl Render {
         let indices = geometry.indices.clone();
 
         // Create an OpenGL draw call for the path
-        self.draw_calls.push(DrawCall {
+        let draw_call = Arc::new(Mutex::new(DrawCall {
             vertices,
             indices,
             bindings: None,
-        });
+            instances: vec![],
+            instance_positions: vec![],
+        }));
+        self.draw_calls.push(draw_call.clone());
 
         // Tell the next render loop to create bindings for this
         self.missing_bindings = true;
+
+        // Return the draw call in a newtype struct so it can be used as a reference
+        Mesh(draw_call)
     }
 
     /// Render the graphics.
     pub fn render(&mut self, ctx: &mut Context) {
-        // Render the texture quad
-        ctx.begin_default_pass(PassAction::Nothing);
-
         let (width, height) = ctx.screen_size();
 
         // Create the bindings if they don't exist
         if self.missing_bindings {
             self.draw_calls
                 .iter_mut()
-                .filter(|dc| dc.bindings.is_none())
-                .for_each(|dc| dc.create_bindings(ctx));
+                .filter(|dc| dc.lock().unwrap().bindings.is_none())
+                .for_each(|dc| dc.lock().unwrap().create_bindings(ctx));
 
             self.missing_bindings = false;
         }
 
+        // Update the instance vertices
+        self.draw_calls.iter().for_each(|dc| {
+            let dc = dc.lock().unwrap();
+            let bindings = dc.bindings.as_ref().unwrap();
+
+            // Upload the instance positions
+            bindings.vertex_buffers[1].update(ctx, &dc.instances);
+        });
+
+        // Start rendering
+        ctx.begin_default_pass(PassAction::Nothing);
+
         // Render the separate draw calls
         for dc in self.draw_calls.iter_mut() {
+            let mut dc = dc.lock().unwrap();
+
+            // Only render when we actually have instances
+            if dc.instances.is_empty() {
+                continue;
+            }
+
             let bindings = dc.bindings.as_ref().unwrap();
-            bindings.vertex_buffers[0].update(ctx, &dc.vertices);
-            bindings.index_buffer.update(ctx, &dc.indices);
 
             ctx.apply_pipeline(&self.pipeline);
             ctx.apply_scissor_rect(0, 0, width as i32, height as i32);
@@ -172,11 +176,110 @@ impl Render {
             ctx.apply_uniforms(&Uniforms {
                 resolution: (width, height),
             });
-            ctx.draw(0, dc.indices.len() as i32, 1);
+            ctx.draw(0, dc.indices.len() as i32, dc.instances.len() as i32);
+
+            // Remove all instances for this frame
+            dc.instances.clear();
         }
 
         ctx.end_render_pass();
 
         ctx.commit_frame();
     }
+}
+
+/// A single uploaded mesh as a draw call.
+#[derive(Debug)]
+struct DrawCall {
+    /// Render vertices, build by lyon path.
+    vertices: Vec<Vertex>,
+    /// Render indices, build by lyon path.
+    indices: Vec<u16>,
+    /// Position data for the instances.
+    instance_positions: Vec<[f32; 2]>,
+    /// Render bindings, generated on render loop if empty.
+    bindings: Option<Bindings>,
+    /// List of instances to render.
+    instances: Vec<Instance>,
+}
+
+impl DrawCall {
+    /// Create bindings if they are missing.
+    fn create_bindings(&mut self, ctx: &mut Context) {
+        // The vertex buffer of the vector paths
+        let vertex_buffer = Buffer::immutable(ctx, BufferType::VertexBuffer, &self.vertices);
+        // The index buffer of the vector paths
+        let index_buffer = Buffer::immutable(ctx, BufferType::IndexBuffer, &self.indices);
+
+        // A dynamic buffer that will contain all positions for all instances
+        let instance_positions = Buffer::stream(
+            ctx,
+            BufferType::VertexBuffer,
+            MAX_MESH_INSTANCES * mem::size_of::<Instance>(),
+        );
+
+        let bindings = Bindings {
+            vertex_buffers: vec![vertex_buffer, instance_positions],
+            index_buffer,
+            images: vec![],
+        };
+        self.bindings = Some(bindings);
+    }
+}
+
+#[repr(C)]
+#[derive(Debug, Copy, Clone, Default)]
+struct Vertex {
+    pos: [f32; 2],
+}
+
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+struct Primitive {
+    color: [f32; 4],
+    translate: [f32; 2],
+    z_index: i32,
+    width: f32,
+}
+
+#[repr(C)]
+#[derive(Debug)]
+struct Uniforms {
+    resolution: (f32, f32),
+}
+
+#[repr(C)]
+#[derive(Debug)]
+struct Instance {
+    position: [f32; 2],
+}
+
+mod shader {
+    use miniquad::graphics::*;
+
+    pub const VERTEX: &str = r#"#version 100
+attribute vec2 pos;
+attribute vec2 inst_pos;
+
+uniform vec2 resolution;
+
+void main() {
+    vec2 world_pos = (pos + inst_pos) / (vec2(0.5, -0.5) * resolution);
+
+    gl_Position = vec4(world_pos, 0.0, 1.0);
+}
+"#;
+
+    pub const FRAGMENT: &str = r#"#version 100
+
+void main() {
+    gl_FragColor = vec4(1.0, 1.0, 1.0, 1.0);
+}"#;
+
+    pub const META: ShaderMeta = ShaderMeta {
+        images: &[],
+        uniforms: UniformBlockLayout {
+            uniforms: &[("resolution", UniformType::Float2)],
+        },
+    };
 }
