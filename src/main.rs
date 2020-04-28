@@ -31,7 +31,7 @@ impl Game {
         // Build a Path for the rust logo.
         let mut builder = Path::builder().with_svg();
         build_logo_path(&mut builder);
-        let logo_mesh = render.upload(builder.build().iter());
+        let logo_mesh = render.upload_path(builder.build().iter());
 
         for x in -100..100 {
             for y in -100..100 {
@@ -59,7 +59,6 @@ fn main() {
             window_width: WIDTH as i32,
             window_height: HEIGHT as i32,
             loading: Loading::Embedded,
-            sample_count: 4,
             ..Default::default()
         },
         |mut ctx| {
