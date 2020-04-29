@@ -110,7 +110,7 @@ impl Render {
     /// Upload a lyon path.
     ///
     /// Returns a reference that can be used to add instances.
-    pub fn upload_path<P>(&mut self, path: P) -> Mesh
+    pub fn upload_path<P>(&mut self, path: P, color: usvg::Color, opacity: f32) -> Mesh
     where
         P: IntoIterator<Item = PathEvent>,
     {
@@ -122,12 +122,7 @@ impl Render {
                 .tessellate(
                     path,
                     &FillOptions::default(),
-                    &mut BuffersBuilder::new(&mut geometry, |pos: Point, _: FillAttributes| {
-                        Vertex {
-                            pos: pos.to_array(),
-                            ..Default::default()
-                        }
-                    }),
+                    &mut BuffersBuilder::new(&mut geometry, VertexCtor::new(color, opacity)),
                 )
                 .unwrap();
         }
@@ -180,7 +175,7 @@ impl Render {
                     fill_tess
                         .tessellate(
                             convert_path(path),
-                            &FillOptions::tolerance(0.01),
+                            &FillOptions::tolerance(0.1),
                             &mut BuffersBuilder::new(
                                 &mut geometry,
                                 VertexCtor::new(color, fill.opacity.value() as f32),
@@ -194,7 +189,7 @@ impl Render {
                     // Tessellate the stroke
                     let _ = stroke_tess.tessellate(
                         convert_path(path),
-                        &stroke_opts.with_tolerance(0.01),
+                        &stroke_opts.with_tolerance(0.1),
                         &mut BuffersBuilder::new(
                             &mut geometry,
                             VertexCtor::new(color, stroke.opacity.value() as f32),

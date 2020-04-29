@@ -47,7 +47,7 @@ jobs:
         with:
           command: fmt
           args: --all -- --check
-          
+
       - name: cargo bloat
         uses: orf/cargo-bloat-action@v1
         with:
@@ -78,6 +78,7 @@ jobs:
           mkdir www
           cp target/wasm32-unknown-unknown/release/*.wasm www
           cp *.html www
+          cp -r assets www
 
       - name: deploy to github pages
         uses: s0/git-publish-subdir-action@master

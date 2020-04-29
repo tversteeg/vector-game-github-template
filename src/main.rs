@@ -28,15 +28,22 @@ impl Game {
         // Setup the OpenGL render part
         let mut render = Render::new(ctx);
 
+        // Add a SVG
+        let character_mesh = render.upload_svg(include_str!("../assets/single-character.svg"))?;
+
         // Build a Path for the rust logo.
         let mut builder = Path::builder().with_svg();
         build_logo_path(&mut builder);
-        let logo_mesh = render.upload_path(builder.build().iter());
+        let logo_mesh = render.upload_path(
+            builder.build().iter(),
+            usvg::Color::new(0xFF, 0xFF, 0xFF),
+            1.0,
+        );
 
-        for x in -100..100 {
-            for y in -100..100 {
-                logo_mesh.add_instance(Vec2::new(x as f64 * 100.0, y as f64 * 100.0));
-            }
+        // Add 10 logos & characters
+        for x in 0..10 {
+            logo_mesh.add_instance(Vec2::new(x as f64 * 100.0, 0.0));
+            character_mesh.add_instance(Vec2::new(x as f64 * 100.0, 100.0));
         }
 
         Ok(Self { render })
