@@ -1,7 +1,9 @@
+mod physics;
 mod render;
 
-use crate::render::Render;
+use crate::{physics::Physics, render::Render};
 use anyhow::Result;
+use legion::world::{Universe, World};
 use lyon::{
     extra::rust_logo::build_logo_path,
     path::{builder::Build, Path},
@@ -11,7 +13,7 @@ use miniquad::{
     Context, EventHandler, UserData,
 };
 
-type Vec2 = vek::Vec2<f64>;
+type Vec2 = nalgebra::Vector2<f64>;
 
 const WIDTH: usize = 800;
 const HEIGHT: usize = 600;
@@ -20,6 +22,12 @@ const HEIGHT: usize = 600;
 struct Game {
     /// Our wrapper around the OpenGL calls.
     render: Render,
+    /// Physics engine.
+    physics: Physics<f64>,
+    /// ECS universe.
+    universe: Universe,
+    /// ECS world.
+    world: World,
 }
 
 impl Game {
@@ -31,27 +39,31 @@ impl Game {
         // Add a SVG
         let character_mesh = render.upload_svg(include_str!("../assets/single-character.svg"))?;
 
-        // Build a Path for the rust logo.
-        let mut builder = Path::builder().with_svg();
-        build_logo_path(&mut builder);
-        let logo_mesh = render.upload_path(
-            builder.build().iter(),
-            usvg::Color::new(0xFF, 0xFF, 0xFF),
-            1.0,
-        );
-
         // Add 10 logos & characters
         for x in 0..10 {
             logo_mesh.add_instance(Vec2::new(x as f64 * 100.0, 0.0));
-            character_mesh.add_instance(Vec2::new(x as f64 * 100.0, 100.0));
         }
 
-        Ok(Self { render })
+        // Instantiate the physics engine
+        let physics = Physics::new(-9.81);
+
+        // Instantiate the ECS
+        let universe = Universe::new();
+        let mut world = universe.create_world();
+
+        Ok(Self {
+            render,
+            physics,
+            universe,
+            world,
+        })
     }
 }
 
 impl EventHandler for Game {
-    fn update(&mut self, _ctx: &mut Context) {}
+    fn update(&mut self, _ctx: &mut Context) {
+        self.physics.step();
+    }
 
     fn draw(&mut self, ctx: &mut Context) {
         // Render the buffer

@@ -1,4 +1,9 @@
 use anyhow::Result;
+use legion::{
+    filter::filter_fns::tag_value,
+    query::{IntoQuery, Read, Tagged},
+    world::World,
+};
 use lyon::{
     math::Point,
     path::PathEvent,
@@ -9,71 +14,21 @@ use lyon::{
     },
 };
 use miniquad::{graphics::*, Context};
-use std::{
-    mem,
-    sync::{Arc, Mutex},
-};
+use std::mem;
 
-type Vec2 = vek::Vec2<f64>;
+type Vec2 = nalgebra::Vector2<f64>;
 
 const MAX_MESH_INSTANCES: usize = 1024 * 1024;
 
 /// A reference to an uploaded vector path.
-///
-/// This contains an atomic reference counted mutex, which will unload the mesh from VRAM when
-/// destructed.
-#[derive(Debug, Clone)]
-pub struct Mesh(Arc<Mutex<DrawCall>>);
-
-impl Mesh {
-    /// Render an instance of this mesh.
-    ///
-    /// Pretty slow because it needs to unlock the mutex. If possible use `draw_instances` instead.
-    pub fn add_instance(&self, pos: Vec2) {
-        let mut dc = self.0.lock().unwrap();
-
-        dc.instances.push(Instance {
-            position: [pos.x as f32, pos.y as f32],
-        });
-        assert!(dc.instances.len() < MAX_MESH_INSTANCES);
-
-        // Tell the render loop that the data is out of date
-        dc.refresh_instances = true;
-    }
-
-    /// Render a list of instances of this mesh.
-    pub fn overwrite_instances(&self, pos: &Vec<Vec2>) {
-        let mut dc = self.0.lock().unwrap();
-
-        dc.instances = pos
-            .iter()
-            .map(|pos| Instance {
-                position: [pos.x as f32, pos.y as f32],
-            })
-            .collect();
-        assert!(dc.instances.len() < MAX_MESH_INSTANCES);
-
-        // Tell the render loop that the data is out of date
-        dc.refresh_instances = true;
-    }
-
-    /// Remove all instances.
-    pub fn clear_instances(&self) {
-        let mut dc = self.0.lock().unwrap();
-
-        dc.instances.clear();
-        dc.refresh_instances = true;
-    }
-}
+#[derive(Debug, Copy, Clone, PartialEq)]
+pub struct Mesh(usize);
 
 /// A wrapper around the OpenGL calls so the main file won't be polluted.
 pub struct Render {
     pipeline: Pipeline,
     /// A list of draw calls with bindings that will be generated.
-    ///
-    /// The draw calls are wrapped in a `Arc<Mutex<_>>` construction so it can be passed safely as
-    /// a reference.
-    draw_calls: Vec<Arc<Mutex<DrawCall>>>,
+    draw_calls: Vec<DrawCall>,
     /// Whether some draw calls are missing bindings.
     missing_bindings: bool,
 }
@@ -130,21 +85,21 @@ impl Render {
         let indices = geometry.indices.clone();
 
         // Create an OpenGL draw call for the path
-        let draw_call = Arc::new(Mutex::new(DrawCall {
+        let draw_call = DrawCall {
             vertices,
             indices,
             bindings: None,
             instances: vec![],
             instance_positions: vec![],
             refresh_instances: false,
-        }));
-        self.draw_calls.push(draw_call.clone());
+        };
+        self.draw_calls.push(draw_call);
 
         // Tell the next render loop to create bindings for this
         self.missing_bindings = true;
 
         // Return the draw call in a newtype struct so it can be used as a reference
-        Mesh(draw_call)
+        Mesh(self.draw_calls.len() - 1)
     }
 
     /// Upload a SVG.
@@ -203,21 +158,34 @@ impl Render {
         let indices = geometry.indices.clone();
 
         // Create an OpenGL draw call for the path
-        let draw_call = Arc::new(Mutex::new(DrawCall {
+        let draw_call = DrawCall {
             vertices,
             indices,
             bindings: None,
             instances: vec![],
             instance_positions: vec![],
             refresh_instances: false,
-        }));
-        self.draw_calls.push(draw_call.clone());
+        };
+        self.draw_calls.push(draw_call);
 
         // Tell the next render loop to create bindings for this
         self.missing_bindings = true;
 
         // Return the draw call in a newtype struct so it can be used as a reference
-        Ok(Mesh(draw_call))
+        Ok(Mesh(self.draw_calls.len() - 1))
+    }
+
+    /// Fill the instances.
+    pub fn update(&mut self, world: &mut World) {
+        let query = <(Read<Instance>, Tagged<Mesh>)>::query();
+
+        // TODO move to render
+        self.draw_calls.iter_mut().enumerate().
+        for index in 0..self.draw_calls.len() {
+            let query = query.filter(tag_value(&Mesh(index)));
+
+            for (pos, mesh) in query.iter(world) {}
+        }
     }
 
     /// Render the graphics.
@@ -226,8 +194,6 @@ impl Render {
 
         // Create bindings & update the instance vertices if necessary
         self.draw_calls.iter().for_each(|dc| {
-            let mut dc = dc.lock().unwrap();
-
             // Create bindings if missing
             if self.missing_bindings && dc.bindings.is_none() {
                 dc.create_bindings(ctx);
@@ -249,8 +215,6 @@ impl Render {
 
         // Render the separate draw calls
         for dc in self.draw_calls.iter_mut() {
-            let dc = dc.lock().unwrap();
-
             // Only render when we actually have instances
             if dc.instances.is_empty() {
                 continue;
@@ -313,6 +277,11 @@ impl DrawCall {
         };
         self.bindings = Some(bindings);
     }
+
+    /// Clear the list of instances.
+    fn clear_instances(&mut self) {
+        self.instances.clear();
+    }
 }
 
 #[repr(C)]
@@ -330,8 +299,8 @@ struct Uniforms {
 }
 
 #[repr(C)]
-#[derive(Debug)]
-struct Instance {
+#[derive(Debug, Copy, Clone, PartialEq)]
+pub struct Instance {
     position: [f32; 2],
 }
 
