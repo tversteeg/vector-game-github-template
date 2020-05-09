@@ -187,7 +187,11 @@ impl Render {
                 // Get the meshes belongin to the draw call
                 let query = <Read<Instance>>::query().filter(tag_value(&mesh));
 
+                // Copy the instances from legion to the draw call
                 draw_call.instances = query.iter(world).map(|pos| *pos).collect();
+
+                // Tell the render loop that the position of the instances have been changed
+                draw_call.refresh_instances = true;
             });
     }
 
