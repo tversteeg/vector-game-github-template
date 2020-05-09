@@ -1,13 +1,12 @@
 mod physics;
 mod render;
 
-use crate::{physics::Physics, render::Render};
+use crate::{
+    physics::Physics,
+    render::{Instance, Render},
+};
 use anyhow::Result;
 use legion::world::{Universe, World};
-use lyon::{
-    extra::rust_logo::build_logo_path,
-    path::{builder::Build, Path},
-};
 use miniquad::{
     conf::{Conf, Loading},
     Context, EventHandler, UserData,
@@ -39,17 +38,18 @@ impl Game {
         // Add a SVG
         let character_mesh = render.upload_svg(include_str!("../assets/single-character.svg"))?;
 
-        // Add 10 logos & characters
-        for x in 0..10 {
-            logo_mesh.add_instance(Vec2::new(x as f64 * 100.0, 0.0));
-        }
-
         // Instantiate the physics engine
         let physics = Physics::new(-9.81);
 
         // Instantiate the ECS
         let universe = Universe::new();
         let mut world = universe.create_world();
+
+        // Add 10 characters
+        world.insert(
+            (character_mesh,),
+            (0..9).map(|x| (Instance::new(x as f32 * 100.0, 0.0),)),
+        );
 
         Ok(Self {
             render,
@@ -63,6 +63,8 @@ impl Game {
 impl EventHandler for Game {
     fn update(&mut self, _ctx: &mut Context) {
         self.physics.step();
+
+        self.render.update(&mut self.world);
     }
 
     fn draw(&mut self, ctx: &mut Context) {

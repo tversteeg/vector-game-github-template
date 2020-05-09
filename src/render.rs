@@ -21,7 +21,7 @@ type Vec2 = nalgebra::Vector2<f64>;
 const MAX_MESH_INSTANCES: usize = 1024 * 1024;
 
 /// A reference to an uploaded vector path.
-#[derive(Debug, Copy, Clone, PartialEq)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub struct Mesh(usize);
 
 /// A wrapper around the OpenGL calls so the main file won't be polluted.
@@ -175,17 +175,20 @@ impl Render {
         Ok(Mesh(self.draw_calls.len() - 1))
     }
 
-    /// Fill the instances.
+    /// Update the instances for each draw call.
     pub fn update(&mut self, world: &mut World) {
-        let query = <(Read<Instance>, Tagged<Mesh>)>::query();
+        // Get all instances and meshes
+        self.draw_calls
+            .iter_mut()
+            .enumerate()
+            .for_each(|(index, mut draw_call)| {
+                let mesh = Mesh(index);
 
-        // TODO move to render
-        self.draw_calls.iter_mut().enumerate().
-        for index in 0..self.draw_calls.len() {
-            let query = query.filter(tag_value(&Mesh(index)));
+                // Get the meshes belongin to the draw call
+                let query = <Read<Instance>>::query().filter(tag_value(&mesh));
 
-            for (pos, mesh) in query.iter(world) {}
-        }
+                draw_call.instances = query.iter(world).map(|pos| *pos).collect();
+            });
     }
 
     /// Render the graphics.
@@ -193,22 +196,24 @@ impl Render {
         let (width, height) = ctx.screen_size();
 
         // Create bindings & update the instance vertices if necessary
-        self.draw_calls.iter().for_each(|dc| {
-            // Create bindings if missing
-            if self.missing_bindings && dc.bindings.is_none() {
-                dc.create_bindings(ctx);
-            }
+        if self.missing_bindings {
+            self.draw_calls.iter_mut().for_each(|mut dc| {
+                // Create bindings if missing
+                if dc.bindings.is_none() {
+                    dc.create_bindings(ctx);
+                }
 
-            if dc.refresh_instances {
-                // Upload the instance positions
-                let bindings = dc.bindings.as_ref().unwrap();
-                bindings.vertex_buffers[1].update(ctx, &dc.instances);
+                if dc.refresh_instances {
+                    // Upload the instance positions
+                    let bindings = dc.bindings.as_ref().unwrap();
+                    bindings.vertex_buffers[1].update(ctx, &dc.instances);
 
-                dc.refresh_instances = false;
-            }
-        });
+                    dc.refresh_instances = false;
+                }
+            });
 
-        self.missing_bindings = false;
+            self.missing_bindings = false;
+        }
 
         // Start rendering
         ctx.begin_default_pass(PassAction::Nothing);
@@ -302,6 +307,13 @@ struct Uniforms {
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub struct Instance {
     position: [f32; 2],
+}
+
+impl Instance {
+    /// Create a new instance with a position.
+    pub fn new(x: f32, y: f32) -> Self {
+        Self { position: [x, y] }
+    }
 }
 
 /// Used by lyon to create vertices.
