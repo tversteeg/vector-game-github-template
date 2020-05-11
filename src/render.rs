@@ -26,7 +26,14 @@ pub struct Mesh(usize);
 
 /// A wrapper around the OpenGL calls so the main file won't be polluted.
 pub struct Render {
-    pipeline: Pipeline,
+    /// The OpenGL pipeline for the pass rendering to the render target.
+    offscreen_pipeline: Pipeline,
+    /// The OpenGL pass for rendering to the render target.
+    offscreen_pass: RenderPass,
+    /// The OpenGL pipeline to apply FXAA as a post-processing effect.
+    post_processing_pipeline: Pipeline,
+    /// The bindings to the GPU containing the render target.
+    post_processing_bind: Bindings,
     /// A list of draw calls with bindings that will be generated.
     draw_calls: Vec<DrawCall>,
     /// Whether some draw calls are missing bindings.
@@ -36,9 +43,18 @@ pub struct Render {
 impl Render {
     /// Setup the OpenGL pipeline and the texture for the framebuffer.
     pub fn new(ctx: &mut Context) -> Self {
-        // Create an OpenGL pipeline
-        let shader = Shader::new(ctx, shader::VERTEX, shader::FRAGMENT, shader::META);
-        let pipeline = Pipeline::new(
+        // Create a first pass to render to a render target
+        let (width, height) = ctx.screen_size();
+        let (color_img, offscreen_pass) = Self::create_offscreen_pass(ctx, width as _, height as _);
+
+        // Create an OpenGL pipeline for rendering to the render target
+        let offscreen_shader = Shader::new(
+            ctx,
+            geom_shader::VERTEX,
+            geom_shader::FRAGMENT,
+            geom_shader::META,
+        );
+        let offscreen_pipeline = Pipeline::with_params(
             ctx,
             &[
                 BufferLayout::default(),
@@ -52,11 +68,56 @@ impl Render {
                 VertexAttribute::with_buffer("a_color", VertexFormat::Float4, 0),
                 VertexAttribute::with_buffer("a_inst_pos", VertexFormat::Float2, 1),
             ],
-            shader,
+            offscreen_shader,
+            PipelineParams {
+                depth_test: Comparison::LessOrEqual,
+                depth_write: true,
+                ..Default::default()
+            },
+        );
+
+        // Create an OpenGL pipeline for post-processing effects on the render target
+        let post_processing_shader = Shader::new(
+            ctx,
+            post_process_shader::VERTEX,
+            post_process_shader::FRAGMENT,
+            post_process_shader::META,
+        );
+
+        #[rustfmt::skip]
+        let vertices: &[f32] = &[
+            /* pos         uvs */
+            -1.0, -1.0,    0.0, 0.0,
+             1.0, -1.0,    1.0, 0.0,
+             1.0,  1.0,    1.0, 1.0,
+            -1.0,  1.0,    0.0, 1.0,
+        ];
+        let vertex_buffer = Buffer::immutable(ctx, BufferType::VertexBuffer, &vertices);
+
+        let indices: &[u16] = &[0, 1, 2, 0, 2, 3];
+        let index_buffer = Buffer::immutable(ctx, BufferType::IndexBuffer, &indices);
+
+        let post_processing_bind = Bindings {
+            vertex_buffers: vec![vertex_buffer],
+            index_buffer,
+            images: vec![color_img],
+        };
+
+        let post_processing_pipeline = Pipeline::new(
+            ctx,
+            &[BufferLayout::default()],
+            &[
+                VertexAttribute::new("a_pos", VertexFormat::Float2),
+                VertexAttribute::new("a_uv", VertexFormat::Float2),
+            ],
+            post_processing_shader,
         );
 
         Self {
-            pipeline,
+            offscreen_pass,
+            offscreen_pipeline,
+            post_processing_pipeline,
+            post_processing_bind,
             draw_calls: vec![],
             missing_bindings: false,
         }
@@ -219,8 +280,11 @@ impl Render {
             self.missing_bindings = false;
         }
 
-        // Start rendering
-        ctx.begin_default_pass(PassAction::Nothing);
+        // Render the pass to the render target
+        ctx.begin_pass(
+            self.offscreen_pass,
+            PassAction::clear_color(0.4, 0.7, 1.0, 1.0),
+        );
 
         // Render the separate draw calls
         for dc in self.draw_calls.iter_mut() {
@@ -231,10 +295,10 @@ impl Render {
 
             let bindings = dc.bindings.as_ref().unwrap();
 
-            ctx.apply_pipeline(&self.pipeline);
+            ctx.apply_pipeline(&self.offscreen_pipeline);
             ctx.apply_scissor_rect(0, 0, width as i32, height as i32);
             ctx.apply_bindings(bindings);
-            ctx.apply_uniforms(&Uniforms {
+            ctx.apply_uniforms(&geom_shader::Uniforms {
                 zoom: (2.0 / width, 2.0 / height),
                 pan: (-width / 2.0, -height / 2.0),
             });
@@ -243,7 +307,50 @@ impl Render {
 
         ctx.end_render_pass();
 
+        // Render the post-processing pass
+        ctx.begin_default_pass(PassAction::Nothing);
+        ctx.apply_pipeline(&self.post_processing_pipeline);
+        ctx.apply_bindings(&self.post_processing_bind);
+        ctx.apply_uniforms(&post_process_shader::Uniforms {
+            resolution: (width, height),
+        });
+        ctx.draw(0, 36, 1);
+        ctx.end_render_pass();
+
         ctx.commit_frame();
+    }
+
+    /// Handle the resize event, needed for resizing the render target.
+    pub fn resize(&mut self, ctx: &mut Context, width: f32, height: f32) {
+        let (color_img, offscreen_pass) = Self::create_offscreen_pass(ctx, width as _, height as _);
+
+        self.offscreen_pass.delete(ctx);
+        self.offscreen_pass = offscreen_pass;
+        self.post_processing_bind.images[0] = color_img;
+    }
+
+    /// Create a render pass for the offscreen texture, used when resizing.
+    fn create_offscreen_pass(ctx: &mut Context, width: u32, height: u32) -> (Texture, RenderPass) {
+        let color_img = Texture::new_render_texture(
+            ctx,
+            TextureParams {
+                width,
+                height,
+                format: TextureFormat::RGBA8,
+                ..Default::default()
+            },
+        );
+        let depth_img = Texture::new_render_texture(
+            ctx,
+            TextureParams {
+                width,
+                height,
+                format: TextureFormat::Depth,
+                ..Default::default()
+            },
+        );
+
+        (color_img, RenderPass::new(ctx, color_img, depth_img))
     }
 }
 
@@ -298,13 +405,6 @@ impl DrawCall {
 struct Vertex {
     pos: [f32; 2],
     color: [f32; 4],
-}
-
-#[repr(C)]
-#[derive(Debug)]
-struct Uniforms {
-    zoom: (f32, f32),
-    pan: (f32, f32),
 }
 
 #[repr(C)]
@@ -483,7 +583,7 @@ fn convert_stroke(s: &usvg::Stroke) -> (usvg::Color, StrokeOptions) {
     (color, opt)
 }
 
-mod shader {
+mod geom_shader {
     use miniquad::graphics::*;
 
     pub const VERTEX: &str = r#"#version 100
@@ -523,4 +623,90 @@ void main() {
             ],
         },
     };
+
+    #[repr(C)]
+    #[derive(Debug)]
+    pub struct Uniforms {
+        pub zoom: (f32, f32),
+        pub pan: (f32, f32),
+    }
+}
+
+mod post_process_shader {
+    use miniquad::graphics::*;
+
+    pub const VERTEX: &str = r#"#version 100
+
+attribute vec2 a_pos;
+attribute vec2 a_uv;
+
+uniform vec2 u_resolution;
+
+varying lowp vec2 v_texcoord;
+
+// Precalculated for FXAA
+varying vec2 v_rgbNW;
+varying vec2 v_rgbNE;
+varying vec2 v_rgbSW;
+varying vec2 v_rgbSE;
+varying vec2 v_rgbM;
+
+void texcoords(vec2 fragCoord, vec2 resolution,
+			out vec2 v_rgbNW, out vec2 v_rgbNE,
+			out vec2 v_rgbSW, out vec2 v_rgbSE,
+			out vec2 v_rgbM) {
+	vec2 inverseVP = 1.0 / resolution.xy;
+	v_rgbNW = (fragCoord + vec2(-1.0, -1.0)) * inverseVP;
+	v_rgbNE = (fragCoord + vec2(1.0, -1.0)) * inverseVP;
+	v_rgbSW = (fragCoord + vec2(-1.0, 1.0)) * inverseVP;
+	v_rgbSE = (fragCoord + vec2(1.0, 1.0)) * inverseVP;
+	v_rgbM = vec2(fragCoord * inverseVP);
+}
+
+void main() {
+    // Calculate the texture coordinates for the FXAA shader
+    vec2 frag_coord = a_uv * u_resolution;
+    texcoords(frag_coord, u_resolution, v_rgbNW, v_rgbNE, v_rgbSW, v_rgbSE, v_rgbM);
+
+    gl_Position = vec4(a_pos, 0.0, 1.0);
+    v_texcoord = a_uv;
+}
+"#;
+
+    pub const FRAGMENT: &str = concat!(
+        "#version 100\n",
+        // The FXAA shader needs a defined precision
+        "precision mediump float;\n",
+        include_str!("fxaa.glsl"),
+        r#"
+varying lowp vec2 v_texcoord;
+
+varying vec2 v_rgbNW;
+varying vec2 v_rgbNE;
+varying vec2 v_rgbSW;
+varying vec2 v_rgbSE;
+varying vec2 v_rgbM;
+
+uniform sampler2D u_tex;
+uniform vec2 u_resolution;
+
+void main() {
+    vec2 frag_coord = v_texcoord * u_resolution;
+	gl_FragColor = fxaa(u_tex, frag_coord, u_resolution, v_rgbNW, v_rgbNE, v_rgbSW, v_rgbSE, v_rgbM);
+}
+"#
+    );
+
+    pub const META: ShaderMeta = ShaderMeta {
+        images: &["u_tex"],
+        uniforms: UniformBlockLayout {
+            uniforms: &[UniformDesc::new("u_resolution", UniformType::Float2)],
+        },
+    };
+
+    #[repr(C)]
+    #[derive(Debug)]
+    pub struct Uniforms {
+        pub resolution: (f32, f32),
+    }
 }

@@ -21,19 +21,19 @@ generational-arena = "0.2.7"
 hibitset = "0.6.3"
 legion = { version = "0.2.1", default-features = false }
 lyon = { version = "0.15.8", features = ["extra"] }
-miniquad = "0.3.0-alpha.0"
+miniquad = { git = "https://github.com/not-fl3/miniquad.git", branch = "render_pass_delete" }
 usvg = { version = "0.9.0", default-features = false }
 
 [dependencies.nphysics2d]
-version = "0.14.0"
+version = "0.15.0"
 default-features = false
 features = ["dim2"]
 
 [dependencies.ncollide2d]
-version = "0.22.0"
+version = "0.23.0"
 default-features = false
 features = ["dim2"]
 
 [dependencies.nalgebra]
-version = "0.20.0"
+version = "0.21.0"
 default-features = false
