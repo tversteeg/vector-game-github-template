@@ -267,14 +267,6 @@ impl Render {
                 if dc.bindings.is_none() {
                     dc.create_bindings(ctx);
                 }
-
-                if dc.refresh_instances {
-                    // Upload the instance positions
-                    let bindings = dc.bindings.as_ref().unwrap();
-                    bindings.vertex_buffers[1].update(ctx, &dc.instances);
-
-                    dc.refresh_instances = false;
-                }
             });
 
             self.missing_bindings = false;
@@ -294,6 +286,12 @@ impl Render {
             }
 
             let bindings = dc.bindings.as_ref().unwrap();
+            if dc.refresh_instances {
+                // Upload the instance positions
+                bindings.vertex_buffers[1].update(ctx, &dc.instances);
+
+                dc.refresh_instances = false;
+            }
 
             ctx.apply_pipeline(&self.offscreen_pipeline);
             ctx.apply_scissor_rect(0, 0, width as i32, height as i32);
@@ -417,6 +415,26 @@ impl Instance {
     /// Create a new instance with a position.
     pub fn new(x: f32, y: f32) -> Self {
         Self { position: [x, y] }
+    }
+
+    /// Set the X position.
+    pub fn set_x(&mut self, new: f32) {
+        self.position[0] = new;
+    }
+
+    /// Get the X position.
+    pub fn x(&self) -> f32 {
+        self.position[0]
+    }
+
+    /// Set the Y position.
+    pub fn set_y(&mut self, new: f32) {
+        self.position[1] = new;
+    }
+
+    /// Get the Y position.
+    pub fn y(&self) -> f32 {
+        self.position[1]
     }
 }
 

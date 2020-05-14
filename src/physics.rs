@@ -8,7 +8,8 @@ use nphysics2d::{
     material::{BasicMaterial, MaterialHandle},
     math::Velocity,
     object::{
-        BodyPartHandle, BodyStatus, ColliderDesc, DefaultBodySet, DefaultColliderSet, RigidBodyDesc,
+        BodyPartHandle, BodyStatus, ColliderDesc, DefaultBodyHandle, DefaultBodySet,
+        DefaultColliderSet, RigidBodyDesc,
     },
     world::{DefaultGeometricalWorld, DefaultMechanicalWorld},
 };
@@ -66,6 +67,16 @@ impl<N: RealField> Physics<N> {
         }
     }
 
+    /// Get the position of a rigid body.
+    pub fn position(&self, rigid_body: &RigidBody) -> Option<(N, N)> {
+        self.bodies
+            .rigid_body(rigid_body.rigid_body_index)
+            .map(|body| {
+                let translation = body.position().translation;
+                (translation.x, translation.y)
+            })
+    }
+
     /// Helps making constructing rigid bodies easier.
     pub fn default_rigid_body_builder(
         position: Vector2<N>,
@@ -79,10 +90,10 @@ impl<N: RealField> Physics<N> {
             .velocity(velocity)
             .linear_damping(f(0.0))
             .angular_damping(f(0.0))
-            .max_linear_velocity(f(10.0))
+            .max_linear_velocity(f(50.0))
             .max_angular_velocity(f(1.7))
             .angular_inertia(f(3.0))
-            .mass(f(1.0))
+            .mass(f(10.0))
             .local_center_of_mass(Point2::new(f(1.0), f(1.0)))
     }
 
@@ -96,6 +107,6 @@ impl<N: RealField> Physics<N> {
 
 /// A rigid body component.
 pub struct RigidBody {
-    rigid_body_index: Index,
+    rigid_body_index: DefaultBodyHandle,
     collider_index: Index,
 }
