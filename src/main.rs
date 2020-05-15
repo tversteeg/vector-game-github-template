@@ -128,6 +128,7 @@ fn main() {
             window_width: WIDTH as i32,
             window_height: HEIGHT as i32,
             loading: Loading::Embedded,
+            sample_count: 8,
             ..Default::default()
         },
         |mut ctx| {
