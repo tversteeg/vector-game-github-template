@@ -16,7 +16,7 @@ is-it-maintained-issue-resolution = { repository = "tversteeg/replace_me" }
 is-it-maintained-open-issues = { repository = "tversteeg/replace_me" }
 
 [dependencies]
-anyhow = "1.0.30"
+anyhow = "1.0.31"
 generational-arena = "0.2.7"
 hibitset = "0.6.3"
 legion = { version = "0.2.1", default-features = false }

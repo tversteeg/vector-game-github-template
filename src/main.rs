@@ -44,6 +44,7 @@ impl Game {
 
         // Add a SVG
         let character_mesh = render.upload_svg(include_str!("../assets/single-character.svg"))?;
+        let siege_tower_mesh = render.upload_svg(include_str!("../assets/siege-tower.svg"))?;
 
         // Instantiate the physics engine
         let mut physics = Physics::new(9.81);
@@ -55,6 +56,22 @@ impl Game {
         // Add 10 characters with rigid bodies
         world.insert(
             (character_mesh,),
+            (0..9).map(|x| {
+                let rigid_body_desc = Physics::default_rigid_body_builder(
+                    Vec2::new(x as f64, 0.0),
+                    Velocity::linear(x as f64, 0.0),
+                );
+                let collider_body_desc = Physics::default_collider_builder(Ball::new(1.0));
+                (
+                    Instance::new(0.0, 0.0),
+                    physics.spawn_rigid_body(&rigid_body_desc, &collider_body_desc),
+                )
+            }),
+        );
+
+        // Add siege towers
+        world.insert(
+            (siege_tower_mesh,),
             (0..9).map(|x| {
                 let rigid_body_desc = Physics::default_rigid_body_builder(
                     Vec2::new(x as f64, 0.0),

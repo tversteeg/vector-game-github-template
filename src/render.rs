@@ -1,7 +1,7 @@
 use anyhow::Result;
 use legion::{
     filter::filter_fns::tag_value,
-    query::{IntoQuery, Read, Tagged},
+    query::{IntoQuery, Read},
     world::World,
 };
 use lyon::{
@@ -15,8 +15,6 @@ use lyon::{
 };
 use miniquad::{graphics::*, Context};
 use std::mem;
-
-type Vec2 = nalgebra::Vector2<f64>;
 
 const MAX_MESH_INSTANCES: usize = 1024 * 1024;
 
@@ -262,7 +260,7 @@ impl Render {
 
         // Create bindings & update the instance vertices if necessary
         if self.missing_bindings {
-            self.draw_calls.iter_mut().for_each(|mut dc| {
+            self.draw_calls.iter_mut().for_each(|dc| {
                 // Create bindings if missing
                 if dc.bindings.is_none() {
                     dc.create_bindings(ctx);
