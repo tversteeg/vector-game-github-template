@@ -15,7 +15,9 @@ use lyon::{
 };
 use miniquad::{graphics::*, Context};
 use std::mem;
+use usvg::{NodeKind, Options, Paint, ShapeRendering, Tree};
 
+const PATH_TOLERANCE: f32 = 0.01;
 const MAX_MESH_INSTANCES: usize = 1024 * 1024;
 
 /// A reference to an uploaded vector path.
@@ -174,14 +176,20 @@ impl Render {
         let mut fill_tess = FillTessellator::new();
         let mut stroke_tess = StrokeTessellator::new();
 
-        let rtree = usvg::Tree::from_str(svg.as_ref(), &usvg::Options::default())?;
+        // Parse the SVG string
+        let options = Options {
+            shape_rendering: ShapeRendering::GeometricPrecision,
+            keep_named_groups: true,
+            ..Default::default()
+        };
+        let rtree = Tree::from_str(svg.as_ref(), &options)?;
         // Loop over all nodes in the SVG tree
         for node in rtree.root().descendants() {
-            if let usvg::NodeKind::Path(ref path) = *node.borrow() {
+            if let NodeKind::Path(ref path) = *node.borrow() {
                 if let Some(ref fill) = path.fill {
                     // Get the fill color
                     let color = match fill.paint {
-                        usvg::Paint::Color(color) => color,
+                        Paint::Color(color) => color,
                         _ => todo!("Color not defined"),
                     };
 
@@ -189,7 +197,7 @@ impl Render {
                     fill_tess
                         .tessellate(
                             convert_path(path),
-                            &FillOptions::tolerance(0.1),
+                            &FillOptions::tolerance(PATH_TOLERANCE),
                             &mut BuffersBuilder::new(
                                 &mut geometry,
                                 VertexCtor::new(color, fill.opacity.value() as f32),
@@ -203,7 +211,7 @@ impl Render {
                     // Tessellate the stroke
                     let _ = stroke_tess.tessellate(
                         convert_path(path),
-                        &stroke_opts.with_tolerance(0.1),
+                        &stroke_opts.with_tolerance(PATH_TOLERANCE),
                         &mut BuffersBuilder::new(
                             &mut geometry,
                             VertexCtor::new(color, stroke.opacity.value() as f32),
@@ -591,7 +599,7 @@ fn convert_stroke(s: &usvg::Stroke) -> (usvg::Color, StrokeOptions) {
         usvg::LineJoin::Round => LineJoin::Round,
     };
 
-    let opt = StrokeOptions::tolerance(0.01)
+    let opt = StrokeOptions::tolerance(PATH_TOLERANCE)
         .with_line_width(s.width.value() as f32)
         .with_line_cap(linecap)
         .with_line_join(linejoin);
@@ -656,9 +664,10 @@ mod post_process_shader {
 attribute vec2 a_pos;
 attribute vec2 a_uv;
 
-uniform vec2 u_resolution;
+uniform lowp vec2 u_resolution;
 
 varying lowp vec2 v_texcoord;
+varying lowp vec2 v_resolution;
 
 // Precalculated for FXAA
 varying vec2 v_rgbNW;
@@ -686,6 +695,7 @@ void main() {
 
     gl_Position = vec4(a_pos, 0.0, 1.0);
     v_texcoord = a_uv;
+    v_resolution = u_resolution;
 }
 "#;
 
@@ -696,6 +706,7 @@ void main() {
         include_str!("fxaa.glsl"),
         r#"
 varying lowp vec2 v_texcoord;
+varying lowp vec2 v_resolution;
 
 varying vec2 v_rgbNW;
 varying vec2 v_rgbNE;
@@ -704,11 +715,10 @@ varying vec2 v_rgbSE;
 varying vec2 v_rgbM;
 
 uniform sampler2D u_tex;
-uniform vec2 u_resolution;
 
 void main() {
-    vec2 frag_coord = v_texcoord * u_resolution;
-	gl_FragColor = fxaa(u_tex, frag_coord, u_resolution, v_rgbNW, v_rgbNE, v_rgbSW, v_rgbSE, v_rgbM);
+    vec2 frag_coord = v_texcoord * v_resolution;
+	gl_FragColor = fxaa(u_tex, frag_coord, v_resolution, v_rgbNW, v_rgbNE, v_rgbSW, v_rgbSE, v_rgbM);
 }
 "#
     );

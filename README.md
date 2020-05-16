@@ -2,6 +2,7 @@
 
 ## Features
 
+- WASM target, check https://tversteeg.nl/vector-game-github-template
 - SVG loading
 - Instanced rendering on GPU
 - Smooth lines with FXAA
