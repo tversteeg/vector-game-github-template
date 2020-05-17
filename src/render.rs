@@ -15,7 +15,7 @@ use lyon::{
 };
 use miniquad::{graphics::*, Context};
 use std::mem;
-use usvg::{NodeKind, Options, Paint, ShapeRendering, Tree};
+use usvg::{Color, NodeKind, Options, Paint, ShapeRendering, Tree};
 
 const PATH_TOLERANCE: f32 = 0.01;
 const MAX_MESH_INSTANCES: usize = 1024 * 1024;
@@ -126,7 +126,7 @@ impl Render {
     /// Upload a lyon path.
     ///
     /// Returns a reference that can be used to add instances.
-    pub fn upload_path<P>(&mut self, path: P, color: usvg::Color, opacity: f32) -> Mesh
+    pub fn upload_path<P>(&mut self, path: P, color: Color, opacity: f32) -> Mesh
     where
         P: IntoIterator<Item = PathEvent>,
     {
@@ -151,7 +151,6 @@ impl Render {
             indices,
             bindings: None,
             instances: vec![],
-            instance_positions: vec![],
             refresh_instances: false,
         };
         self.draw_calls.push(draw_call);
@@ -230,7 +229,6 @@ impl Render {
             indices,
             bindings: None,
             instances: vec![],
-            instance_positions: vec![],
             refresh_instances: false,
         };
         self.draw_calls.push(draw_call);
@@ -255,7 +253,10 @@ impl Render {
                 let query = <Read<Instance>>::query().filter(tag_value(&mesh));
 
                 // Copy the instances from legion to the draw call
-                draw_call.instances = query.iter(world).map(|pos| *pos).collect();
+                // TODO add a better mechanism to detect manual changes
+                if !draw_call.refresh_instances {
+                    draw_call.instances = query.iter(world).map(|pos| *pos).collect();
+                }
 
                 // Tell the render loop that the position of the instances have been changed
                 draw_call.refresh_instances = true;
@@ -288,6 +289,7 @@ impl Render {
         for dc in self.draw_calls.iter_mut() {
             // Only render when we actually have instances
             if dc.instances.is_empty() {
+                dbg!(dc);
                 continue;
             }
 
@@ -333,6 +335,14 @@ impl Render {
         self.post_processing_bind.images[0] = color_img;
     }
 
+    /// Overwrite the instances.
+    pub fn set_instances(&mut self, mesh: &Mesh, instances: Vec<Instance>) {
+        let mut dc = &mut self.draw_calls[mesh.0];
+
+        dc.instances = instances;
+        dc.refresh_instances = true;
+    }
+
     /// Create a render pass for the offscreen texture, used when resizing.
     fn create_offscreen_pass(ctx: &mut Context, width: u32, height: u32) -> (Texture, RenderPass) {
         let color_img = Texture::new_render_texture(
@@ -365,8 +375,6 @@ struct DrawCall {
     vertices: Vec<Vertex>,
     /// Render indices, build by lyon path.
     indices: Vec<u16>,
-    /// Position data for the instances.
-    instance_positions: Vec<[f32; 2]>,
     /// Render bindings, generated on render loop if empty.
     bindings: Option<Bindings>,
     /// List of instances to render.
@@ -396,11 +404,6 @@ impl DrawCall {
             images: vec![],
         };
         self.bindings = Some(bindings);
-    }
-
-    /// Clear the list of instances.
-    fn clear_instances(&mut self) {
-        self.instances.clear();
     }
 }
 
@@ -450,7 +453,7 @@ struct VertexCtor {
 }
 
 impl VertexCtor {
-    pub fn new(color: usvg::Color, alpha: f32) -> Self {
+    pub fn new(color: Color, alpha: f32) -> Self {
         Self {
             color: [
                 color.red as f32 / 255.0,
@@ -583,7 +586,7 @@ fn convert_path<'a>(p: &'a usvg::Path) -> PathConvIter<'a> {
     }
 }
 
-fn convert_stroke(s: &usvg::Stroke) -> (usvg::Color, StrokeOptions) {
+fn convert_stroke(s: &usvg::Stroke) -> (Color, StrokeOptions) {
     let color = match s.paint {
         usvg::Paint::Color(c) => c,
         _ => todo!("No fallback color"),

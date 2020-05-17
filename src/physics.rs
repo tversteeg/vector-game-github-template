@@ -77,6 +77,18 @@ impl<N: RealField> Physics<N> {
             })
     }
 
+    /// Get all the positions of all objects.
+    pub fn positions(&self) -> Vec<(N, N)> {
+        self.colliders
+            .iter()
+            //.filter(|(_, collider)| collider.shape() == shape)
+            .map(|(_, collider)| {
+                let translation = collider.position().translation;
+                (translation.x, translation.y)
+            })
+            .collect()
+    }
+
     /// Helps making constructing rigid bodies easier.
     pub fn default_rigid_body_builder(
         position: Vector2<N>,

@@ -1,7 +1,9 @@
+mod debug;
 mod physics;
 mod render;
 
 use crate::{
+    debug::DebugPhysics,
     physics::{Physics, RigidBody},
     render::{Instance, Render},
 };
@@ -21,10 +23,10 @@ use ncollide2d::shape::Ball;
 type Vec2 = nalgebra::Vector2<f64>;
 type Velocity = nphysics2d::math::Velocity<f64>;
 
+pub const PIXELS_PER_METER: f64 = 10.0;
+
 const WIDTH: usize = 800;
 const HEIGHT: usize = 600;
-
-const PIXELS_PER_METER: f64 = 10.0;
 
 /// Our game state.
 struct Game {
@@ -88,6 +90,9 @@ impl Game {
         // Setup the ECS resources with the physics system
         world.resources.insert(physics);
 
+        // Render debug shapes for the physics
+        world.resources.insert(DebugPhysics::new(&mut render));
+
         // Create the system for updating the instance positions
         let update_positions = SystemBuilder::new("update_positions")
             .read_resource::<Physics<f64>>()
@@ -116,11 +121,13 @@ impl Game {
 impl EventHandler for Game {
     fn update(&mut self, _ctx: &mut Context) {
         // Move the physics
-        self.world
-            .resources
-            .get_mut::<Physics<f64>>()
-            .unwrap()
-            .step();
+        {
+            let mut physics = self.world.resources.get_mut::<Physics<f64>>().unwrap();
+            physics.step();
+
+            let debug_physics = self.world.resources.get_mut::<DebugPhysics>().unwrap();
+            debug_physics.render(&mut self.render, &physics);
+        }
 
         // Run the systems scheduler
         self.schedule.execute(&mut self.world);
