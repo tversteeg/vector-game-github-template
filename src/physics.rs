@@ -1,7 +1,7 @@
 use generational_arena::Index;
 use nalgebra::convert as f;
 use nalgebra::{Point2, RealField, Vector2};
-use ncollide2d::shape::{Shape, ShapeHandle};
+use ncollide2d::shape::{Ball, Shape, ShapeHandle};
 use nphysics2d::{
     force_generator::DefaultForceGeneratorSet,
     joint::DefaultJointConstraintSet,
@@ -78,14 +78,28 @@ impl<N: RealField> Physics<N> {
     }
 
     /// Get all the positions of all objects.
-    pub fn positions(&self) -> Vec<(N, N)> {
+    pub fn positions<S>(&self) -> Vec<(N, N)>
+    where
+        S: Shape<N>,
+    {
         self.colliders
             .iter()
-            //.filter(|(_, collider)| collider.shape() == shape)
+            .filter(|(_, collider)| collider.shape().as_shape::<S>().is_some())
             .map(|(_, collider)| {
                 let translation = collider.position().translation;
                 (translation.x, translation.y)
             })
+            .collect()
+    }
+
+    /// Get the sizes of all objects.
+    pub fn sizes<S>(&self) -> Vec<N>
+    where
+        S: Shape<N> + ShapeSize<N>,
+    {
+        self.colliders
+            .iter()
+            .filter_map(|(_, collider)| collider.shape().as_shape::<S>().map(|shape| shape.size()))
             .collect()
     }
 
@@ -121,4 +135,15 @@ impl<N: RealField> Physics<N> {
 pub struct RigidBody {
     rigid_body_index: DefaultBodyHandle,
     collider_index: Index,
+}
+
+/// A trait for getting the sizes of shapes.
+trait ShapeSize<N: RealField> {
+    fn size(&self) -> N;
+}
+
+impl<N: RealField> ShapeSize<N> for Ball<N> {
+    fn size(&self) -> N {
+        self.radius()
+    }
 }

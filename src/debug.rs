@@ -8,6 +8,7 @@ use lyon::path::{
     Path,
 };
 use nalgebra::RealField;
+use ncollide2d::shape::Ball;
 use usvg::Color;
 
 const MESH_COLOR: Color = Color {
@@ -32,7 +33,7 @@ impl DebugPhysics {
     /// Render the debug shapes.
     pub fn render(&self, render: &mut Render, physics: &Physics<f64>) {
         let circles = physics
-            .positions()
+            .positions::<Ball<f64>>()
             .into_iter()
             .map(|pos| {
                 Instance::new(
