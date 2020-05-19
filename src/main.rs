@@ -99,9 +99,10 @@ impl Game {
             .with_query(<(Write<Instance>, Read<RigidBody>)>::query())
             .build(|_, mut world, physics, query| {
                 for (mut instance, rigid_body) in query.iter(&mut world) {
-                    let (x, y) = physics.position(&rigid_body).unwrap();
+                    let (x, y, rotation) = physics.position(&rigid_body).unwrap();
                     instance.set_x((x * PIXELS_PER_METER) as f32);
                     instance.set_y((y * PIXELS_PER_METER) as f32);
+                    instance.set_rotation(rotation as f32);
                 }
             });
 

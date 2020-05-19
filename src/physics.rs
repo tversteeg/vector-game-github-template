@@ -67,18 +67,20 @@ impl<N: RealField> Physics<N> {
         }
     }
 
-    /// Get the position of a rigid body.
-    pub fn position(&self, rigid_body: &RigidBody) -> Option<(N, N)> {
+    /// Get the position (with rotation) of a rigid body.
+    pub fn position(&self, rigid_body: &RigidBody) -> Option<(N, N, N)> {
         self.bodies
             .rigid_body(rigid_body.rigid_body_index)
             .map(|body| {
-                let translation = body.position().translation;
-                (translation.x, translation.y)
+                let position = body.position();
+                let translation = position.translation;
+
+                (translation.x, translation.y, position.rotation.angle())
             })
     }
 
-    /// Get all the positions of all objects.
-    pub fn positions<S>(&self) -> Vec<(N, N)>
+    /// Get all the positions (with rotation) of all objects.
+    pub fn positions<S>(&self) -> Vec<(N, N, N)>
     where
         S: Shape<N>,
     {
@@ -86,20 +88,40 @@ impl<N: RealField> Physics<N> {
             .iter()
             .filter(|(_, collider)| collider.shape().as_shape::<S>().is_some())
             .map(|(_, collider)| {
-                let translation = collider.position().translation;
-                (translation.x, translation.y)
+                let position = collider.position();
+                let translation = position.translation;
+
+                (translation.x, translation.y, position.rotation.angle())
             })
             .collect()
     }
 
-    /// Get the sizes of all objects.
-    pub fn sizes<S>(&self) -> Vec<N>
+    /// Get the debug info of all objects.
+    ///
+    /// The fields in the tuple returned are: `X`, `Y`, `Rotation`, `Scale`.
+    pub fn debug_shapes<S>(&self) -> Vec<(N, N, N, N)>
     where
         S: Shape<N> + ShapeSize<N>,
     {
         self.colliders
             .iter()
-            .filter_map(|(_, collider)| collider.shape().as_shape::<S>().map(|shape| shape.size()))
+            .filter_map(|(_, collider)| {
+                collider
+                    .shape()
+                    .as_shape::<S>()
+                    .map(|shape| (collider, shape.size()))
+            })
+            .map(|(collider, size)| {
+                let position = collider.position();
+                let translation = position.translation;
+
+                (
+                    translation.x,
+                    translation.y,
+                    position.rotation.angle(),
+                    size,
+                )
+            })
             .collect()
     }
 
