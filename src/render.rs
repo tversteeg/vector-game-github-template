@@ -67,6 +67,8 @@ impl Render {
                 VertexAttribute::with_buffer("a_pos", VertexFormat::Float2, 0),
                 VertexAttribute::with_buffer("a_color", VertexFormat::Float4, 0),
                 VertexAttribute::with_buffer("a_inst_pos", VertexFormat::Float2, 1),
+                VertexAttribute::with_buffer("a_inst_rot", VertexFormat::Float1, 1),
+                VertexAttribute::with_buffer("a_inst_scale", VertexFormat::Float1, 1),
             ],
             offscreen_shader,
             PipelineParams {
@@ -418,12 +420,18 @@ struct Vertex {
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub struct Instance {
     position: [f32; 2],
+    rotation: f32,
+    scale: f32,
 }
 
 impl Instance {
     /// Create a new instance with a position.
     pub fn new(x: f32, y: f32) -> Self {
-        Self { position: [x, y] }
+        Self {
+            position: [x, y],
+            rotation: 0.0,
+            scale: 1.0,
+        }
     }
 
     /// Set the X position.
@@ -444,6 +452,26 @@ impl Instance {
     /// Get the Y position.
     pub fn y(&self) -> f32 {
         self.position[1]
+    }
+
+    /// Set the scale.
+    pub fn set_scale(&mut self, scale: f32) {
+        self.scale = scale;
+    }
+
+    /// Get the scale.
+    pub fn scale(&self) -> f32 {
+        self.scale
+    }
+
+    /// Set the rotation.
+    pub fn set_rotation(&mut self, rotation: f32) {
+        self.rotation = rotation;
+    }
+
+    /// Get the rotation.
+    pub fn rotation(&self) -> f32 {
+        self.rotation
     }
 }
 
@@ -621,11 +649,19 @@ uniform vec2 u_pan;
 attribute vec2 a_pos;
 attribute vec4 a_color;
 attribute vec2 a_inst_pos;
+attribute float a_inst_rot;
+attribute float a_inst_scale;
 
 varying lowp vec4 color;
 
 void main() {
-    vec2 pos = a_pos + a_inst_pos + u_pan;
+    float s = sin(a_inst_rot);
+    float c = cos(a_inst_rot);
+    mat2 rotation_mat = mat2(c, -s, s, c);
+
+    vec2 rotated_pos = a_pos * rotation_mat;
+    vec2 scaled_pos = rotated_pos * a_inst_scale;
+    vec2 pos = scaled_pos + a_inst_pos + u_pan;
     gl_Position = vec4(pos * vec2(1.0, -1.0) * u_zoom, 0.0, 1.0);
 
     color = a_color;
