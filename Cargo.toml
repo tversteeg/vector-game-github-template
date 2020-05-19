@@ -37,7 +37,3 @@ features = ["dim2"]
 [dependencies.nalgebra]
 version = "0.21.0"
 default-features = false
-
-# Use to build on WASM until PR is merged
-[patch.crates-io]
-instant = { git = "https://github.com/tversteeg/instant.git" }
