@@ -36,10 +36,14 @@ impl DebugPhysics {
             .positions::<Ball<f64>>()
             .into_iter()
             .map(|pos| {
-                Instance::new(
+                let mut instance = Instance::new(
                     (pos.0 * PIXELS_PER_METER) as f32,
                     (pos.1 * PIXELS_PER_METER) as f32,
-                )
+                );
+
+                instance.set_scale(PIXELS_PER_METER as f32);
+
+                instance
             })
             .collect();
         render.set_instances(&self.circle_mesh, circles);

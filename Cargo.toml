@@ -21,7 +21,7 @@ generational-arena = "0.2.8"
 hibitset = "0.6.3"
 legion = { version = "0.2.1", default-features = false }
 lyon = { version = "0.15.8", features = ["extra"] }
-miniquad = { git = "https://github.com/not-fl3/miniquad.git", branch = "render_pass_delete" }
+miniquad = { git = "https://github.com/not-fl3/miniquad.git" }
 usvg = { version = "0.9.0", default-features = false }
 
 [dependencies.nphysics2d]
