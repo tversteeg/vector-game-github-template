@@ -322,7 +322,7 @@ impl Render {
         ctx.apply_uniforms(&post_process_shader::Uniforms {
             resolution: (width, height),
         });
-        ctx.draw(0, 36, 1);
+        ctx.draw(0, 6, 1);
         ctx.end_render_pass();
 
         ctx.commit_frame();
