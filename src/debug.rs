@@ -8,7 +8,7 @@ use lyon::path::{
     Path,
 };
 use nalgebra::RealField;
-use ncollide2d::shape::Ball;
+use ncollide2d::shape::{Ball, Capsule};
 use usvg::Color;
 
 const MESH_COLOR: Color = Color {
@@ -20,33 +20,50 @@ const MESH_COLOR: Color = Color {
 /// Render the physics shapes.
 pub struct DebugPhysics {
     circle_mesh: Mesh,
+    capsule_mesh: Mesh,
 }
 
 impl DebugPhysics {
     /// Instantiate everything and upload the meshes.
     pub fn new(render: &mut Render) -> Self {
         let circle_mesh = Self::circle_mesh(render);
+        let capsule_mesh = Self::capsule_mesh(render);
 
-        Self { circle_mesh }
+        Self {
+            circle_mesh,
+            capsule_mesh,
+        }
     }
 
     /// Render the debug shapes.
     pub fn render(&self, render: &mut Render, physics: &Physics<f64>) {
         let circles = physics
-            .positions::<Ball<f64>>()
+            .debug_shapes::<Ball<f64>>()
             .into_iter()
-            .map(|pos| {
-                let mut instance = Instance::new(
-                    (pos.0 * PIXELS_PER_METER) as f32,
-                    (pos.1 * PIXELS_PER_METER) as f32,
-                );
+            .map(|(x, y, _, scale)| {
+                let mut instance =
+                    Instance::new((x * PIXELS_PER_METER) as f32, (y * PIXELS_PER_METER) as f32);
 
-                instance.set_scale(PIXELS_PER_METER as f32);
+                instance.set_scale((scale * PIXELS_PER_METER) as f32);
 
                 instance
             })
             .collect();
         render.set_instances(&self.circle_mesh, circles);
+
+        let capsules = physics
+            .debug_shapes::<Ball<f64>>()
+            .into_iter()
+            .map(|(x, y, _, scale)| {
+                let mut instance =
+                    Instance::new((x * PIXELS_PER_METER) as f32, (y * PIXELS_PER_METER) as f32);
+
+                instance.set_scale((scale * PIXELS_PER_METER) as f32);
+
+                instance
+            })
+            .collect();
+        render.set_instances(&self.capsule_mesh, capsules);
     }
 
     /// Upload the circle mesh.
@@ -59,6 +76,28 @@ impl DebugPhysics {
             Angle::degrees(360.0),
             Angle::degrees(0.0),
         );
+
+        render.upload_path(builder.build().iter(), MESH_COLOR, 0.5)
+    }
+
+    /// Upload the circle mesh.
+    fn capsule_mesh(render: &mut Render) -> Mesh {
+        let mut builder = Path::builder();
+        builder.move_to(Point::new(1.0, 0.0));
+        builder.arc(
+            Point::new(0.0, 0.0),
+            Vector::new(1.0, 1.0),
+            Angle::degrees(180.0),
+            Angle::degrees(0.0),
+        );
+        builder.line_to(Point::new(-1.0, 1.0));
+        builder.arc(
+            Point::new(0.0, 1.0),
+            Vector::new(1.0, -1.0),
+            Angle::degrees(180.0),
+            Angle::degrees(0.0),
+        );
+        builder.close();
 
         render.upload_path(builder.build().iter(), MESH_COLOR, 0.5)
     }

@@ -1,7 +1,7 @@
 use generational_arena::Index;
 use nalgebra::convert as f;
 use nalgebra::{Point2, RealField, Vector2};
-use ncollide2d::shape::{Ball, Shape, ShapeHandle};
+use ncollide2d::shape::{Ball, Capsule, Shape, ShapeHandle};
 use nphysics2d::{
     force_generator::DefaultForceGeneratorSet,
     joint::DefaultJointConstraintSet,
@@ -162,6 +162,12 @@ pub struct RigidBody {
 /// A trait for getting the sizes of shapes.
 trait ShapeSize<N: RealField> {
     fn size(&self) -> N;
+}
+
+impl<N: RealField> ShapeSize<N> for Capsule<N> {
+    fn size(&self) -> N {
+        self.radius()
+    }
 }
 
 impl<N: RealField> ShapeSize<N> for Ball<N> {

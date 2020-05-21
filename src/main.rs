@@ -18,7 +18,7 @@ use miniquad::{
     conf::{Conf, Loading},
     Context, EventHandler, UserData,
 };
-use ncollide2d::shape::Ball;
+use ncollide2d::shape::{Ball, Capsule};
 
 type Vec2 = nalgebra::Vector2<f64>;
 type Velocity = nphysics2d::math::Velocity<f64>;
@@ -63,7 +63,7 @@ impl Game {
                     Vec2::new(x as f64, 0.0),
                     Velocity::linear(x as f64, 0.0),
                 );
-                let collider_body_desc = Physics::default_collider_builder(Ball::new(1.0));
+                let collider_body_desc = Physics::default_collider_builder(Capsule::new(5.0, 5.0));
                 (
                     Instance::new(0.0, 0.0),
                     physics.spawn_rigid_body(&rigid_body_desc, &collider_body_desc),
