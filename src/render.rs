@@ -291,7 +291,6 @@ impl Render {
         for dc in self.draw_calls.iter_mut() {
             // Only render when we actually have instances
             if dc.instances.is_empty() {
-                dbg!(dc);
                 continue;
             }
 

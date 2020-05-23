@@ -47,6 +47,7 @@ impl Game {
         // Add a SVG
         let character_mesh = render.upload_svg(include_str!("../assets/single-character.svg"))?;
         let siege_tower_mesh = render.upload_svg(include_str!("../assets/siege-tower.svg"))?;
+        let ground_mesh = render.upload_svg(include_str!("../assets/ground.svg"))?;
 
         // Instantiate the physics engine
         let mut physics = Physics::new(9.81);
@@ -86,6 +87,9 @@ impl Game {
                 )
             }),
         );
+
+        // Add the ground
+        physics.spawn_ground(Vec2::new(0.0, 50.0), Vec2::new(100.0, 20.0));
 
         // Setup the ECS resources with the physics system
         world.resources.insert(physics);

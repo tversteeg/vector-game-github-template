@@ -1,15 +1,15 @@
 use generational_arena::Index;
 use nalgebra::convert as f;
 use nalgebra::{Point2, RealField, Vector2};
-use ncollide2d::shape::{Ball, Capsule, Shape, ShapeHandle};
+use ncollide2d::shape::{Ball, Capsule, Cuboid, Shape, ShapeHandle};
 use nphysics2d::{
     force_generator::DefaultForceGeneratorSet,
     joint::DefaultJointConstraintSet,
     material::{BasicMaterial, MaterialHandle},
     math::Velocity,
     object::{
-        BodyPartHandle, BodyStatus, ColliderDesc, DefaultBodyHandle, DefaultBodySet,
-        DefaultColliderSet, RigidBodyDesc,
+        Body, BodyPartHandle, BodyStatus, ColliderDesc, DefaultBodyHandle, DefaultBodySet,
+        DefaultColliderSet, Ground, RigidBodyDesc,
     },
     world::{DefaultGeometricalWorld, DefaultMechanicalWorld},
 };
@@ -56,27 +56,41 @@ impl<N: RealField> Physics<N> {
         collider_builder: &ColliderDesc<N>,
     ) -> RigidBody {
         let rigid_body = rigid_body_builder.build();
-        let rigid_body_index = self.bodies.insert(rigid_body);
+        let body_index = self.bodies.insert(rigid_body);
 
-        let collider = collider_builder.build(BodyPartHandle(rigid_body_index, 0));
+        let collider = collider_builder.build(BodyPartHandle(body_index, 0));
         let collider_index = self.colliders.insert(collider);
 
         RigidBody {
-            rigid_body_index,
+            body_index,
+            collider_index,
+        }
+    }
+
+    /// Spawn a body.
+    pub fn spawn_body<B>(&mut self, body: B, collider_builder: &ColliderDesc<N>) -> RigidBody
+    where
+        B: Body<N>,
+    {
+        let body_index = self.bodies.insert(body);
+
+        let collider = collider_builder.build(BodyPartHandle(body_index, 0));
+        let collider_index = self.colliders.insert(collider);
+
+        RigidBody {
+            body_index,
             collider_index,
         }
     }
 
     /// Get the position (with rotation) of a rigid body.
     pub fn position(&self, rigid_body: &RigidBody) -> Option<(N, N, N)> {
-        self.bodies
-            .rigid_body(rigid_body.rigid_body_index)
-            .map(|body| {
-                let position = body.position();
-                let translation = position.translation;
+        self.bodies.rigid_body(rigid_body.body_index).map(|body| {
+            let position = body.position();
+            let translation = position.translation;
 
-                (translation.x, translation.y, position.rotation.angle())
-            })
+            (translation.x, translation.y, position.rotation.angle())
+        })
     }
 
     /// Get all the positions (with rotation) of all objects.
@@ -125,6 +139,13 @@ impl<N: RealField> Physics<N> {
             .collect()
     }
 
+    pub fn spawn_ground(&mut self, position: Vector2<N>, size: Vector2<N>) -> RigidBody {
+        let ground_shape = ShapeHandle::new(Cuboid::new(size));
+        let co = ColliderDesc::new(ground_shape).translation(position);
+
+        self.spawn_body(Ground::new(), &co)
+    }
+
     /// Helps making constructing rigid bodies easier.
     pub fn default_rigid_body_builder(
         position: Vector2<N>,
@@ -155,7 +176,7 @@ impl<N: RealField> Physics<N> {
 
 /// A rigid body component.
 pub struct RigidBody {
-    rigid_body_index: DefaultBodyHandle,
+    body_index: DefaultBodyHandle,
     collider_index: Index,
 }
 
@@ -167,6 +188,12 @@ trait ShapeSize<N: RealField> {
 impl<N: RealField> ShapeSize<N> for Capsule<N> {
     fn size(&self) -> N {
         self.radius()
+    }
+}
+
+impl<N: RealField> ShapeSize<N> for Cuboid<N> {
+    fn size(&self) -> N {
+        self.half_extents().x * f(2.0)
     }
 }
 
