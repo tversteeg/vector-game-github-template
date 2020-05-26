@@ -1,7 +1,6 @@
 use crate::{
     physics::Physics,
     render::{Instance, Mesh, Render},
-    PIXELS_PER_METER,
 };
 use lyon::path::{
     math::{Angle, Point, Vector},
@@ -43,10 +42,9 @@ impl DebugPhysics {
             .debug_shapes::<Ball<f64>>()
             .into_iter()
             .map(|(x, y, _, scale)| {
-                let mut instance =
-                    Instance::new((x * PIXELS_PER_METER) as f32, (y * PIXELS_PER_METER) as f32);
+                let mut instance = Instance::new((x) as f32, (y) as f32);
 
-                instance.set_scale((scale * PIXELS_PER_METER) as f32);
+                instance.set_scale((scale) as f32);
 
                 instance
             })
@@ -57,10 +55,9 @@ impl DebugPhysics {
             .debug_shapes::<Capsule<f64>>()
             .into_iter()
             .map(|(x, y, _, scale)| {
-                let mut instance =
-                    Instance::new((x * PIXELS_PER_METER) as f32, (y * PIXELS_PER_METER) as f32);
+                let mut instance = Instance::new((x) as f32, (y) as f32);
 
-                instance.set_scale((scale * PIXELS_PER_METER) as f32);
+                instance.set_scale((scale) as f32);
 
                 instance
             })
@@ -71,10 +68,9 @@ impl DebugPhysics {
             .debug_shapes::<Cuboid<f64>>()
             .into_iter()
             .map(|(x, y, _, scale)| {
-                let mut instance =
-                    Instance::new((x * PIXELS_PER_METER) as f32, (y * PIXELS_PER_METER) as f32);
+                let mut instance = Instance::new((x) as f32, (y) as f32);
 
-                instance.set_scale((scale * PIXELS_PER_METER) as f32);
+                instance.set_scale((scale) as f32);
 
                 instance
             })
