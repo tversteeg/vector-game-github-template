@@ -144,10 +144,6 @@ impl EventHandler for Game {
         // Render the buffer
         self.render.render(ctx);
     }
-
-    fn resize_event(&mut self, ctx: &mut Context, width: f32, height: f32) {
-        self.render.resize(ctx, width, height);
-    }
 }
 
 fn main() {
