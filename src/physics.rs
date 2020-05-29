@@ -147,16 +147,11 @@ impl<N: RealField> Physics<N> {
     }
 
     /// Helps making constructing rigid bodies easier.
-    pub fn default_rigid_body_builder(
-        position: Vector2<N>,
-        velocity: Velocity<N>,
-    ) -> RigidBodyDesc<N> {
+    pub fn default_rigid_body_builder() -> RigidBodyDesc<N> {
         RigidBodyDesc::new()
-            .translation(position)
             .rotation(nalgebra::zero())
             .gravity_enabled(true)
             .status(BodyStatus::Dynamic)
-            .velocity(velocity)
             .linear_damping(f(0.0))
             .angular_damping(f(0.0))
             .max_linear_velocity(f(50.0))

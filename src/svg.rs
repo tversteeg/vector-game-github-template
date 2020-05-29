@@ -1,4 +1,7 @@
-use crate::render::{Mesh, Vertex, VertexCtor, Render};
+use crate::{render::{Mesh, Vertex, VertexCtor, Render}, object::ObjectDef, physics::Physics};
+use ncollide2d::shape::{Ball, Cuboid};
+use nalgebra::convert as f;
+use nalgebra::RealField;
 use xmltree::Element;
 use std::borrow::Cow;
 use anyhow::{anyhow, Result};
@@ -51,6 +54,24 @@ impl Svg {
     /// Get the value of a metadata field.
     pub fn metadata(&self, key: &str) -> Option<Cow<str>> {
         self.metadata.as_ref()?.get_child(key).map(|element| element.get_text()).flatten()
+    }
+
+    /// Build an object definition.
+    ///
+    /// Also upload the mesh.
+    pub fn into_object_def<N>(self, render: &mut Render) -> Result<ObjectDef<N>>
+        where N: RealField
+    {
+        let mesh = self.upload(render)?;
+
+        let rigid_body = Physics::default_rigid_body_builder();
+        let collider = Physics::default_collider_builder(Ball::new(f(10.0)));
+
+        Ok(ObjectDef {
+            mesh,
+            rigid_body,
+            collider,
+        })
     }
 }
 

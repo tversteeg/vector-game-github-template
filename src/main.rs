@@ -1,4 +1,5 @@
 mod debug;
+mod object;
 mod physics;
 mod render;
 mod svg;
@@ -20,7 +21,6 @@ use miniquad::{
     conf::{Conf, Loading},
     Context, EventHandler, UserData,
 };
-use ncollide2d::shape::{Ball, Cuboid};
 
 type Vec2 = nalgebra::Vector2<f64>;
 type Velocity = nphysics2d::math::Velocity<f64>;
@@ -45,8 +45,7 @@ impl Game {
         let mut render = Render::new(ctx);
 
         // Add a SVG
-        let character_svg = Svg::from_str(include_str!("../assets/single-character.svg"))?;
-        let character_mesh = character_svg.upload(&mut render)?;
+        let character_def = Svg::from_str(include_str!("../assets/single-character.svg"))?.into_object_def(&mut render)?;
 
         // Instantiate the physics engine
         let mut physics = Physics::new(9.81 * 10.0);
@@ -55,19 +54,11 @@ impl Game {
         let universe = Universe::new();
         let mut world = universe.create_world();
 
-        // Add 10 characters with rigid bodies
+        // Add characters with rigid bodies
         world.insert(
-            (character_mesh,),
+            (character_def.mesh(),),
             (0..3).map(|x| {
-                let rigid_body_desc = Physics::default_rigid_body_builder(
-                    Vec2::new(x as f64, 0.0),
-                    Velocity::linear(x as f64, 0.0),
-                );
-                let collider_body_desc = Physics::default_collider_builder(Cuboid::new(Vec2::new(75.0 / 2.0, 175.0 / 2.0)));
-                (
-                    Instance::new(0.0, 0.0),
-                    physics.spawn_rigid_body(&rigid_body_desc, &collider_body_desc),
-                )
+                character_def.spawn(&mut physics, Vec2::new(x as f64, 0.0))
             }),
         );
 

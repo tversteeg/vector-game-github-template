@@ -6,7 +6,7 @@ use lyon::path::{
     math::{Angle, Point, Vector},
     Path,
 };
-use ncollide2d::shape::{Ball, Capsule, Cuboid};
+use ncollide2d::shape::{Ball, Cuboid};
 use usvg::Color;
 
 const MESH_COLOR: Color = Color {
