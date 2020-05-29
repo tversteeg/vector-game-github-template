@@ -1,3 +1,4 @@
+use crate::svg;
 use anyhow::Result;
 use legion::{
     filter::filter_fns::tag_value,
@@ -9,15 +10,14 @@ use lyon::{
     path::PathEvent,
     tessellation::{
         geometry_builder::{FillVertexConstructor, StrokeVertexConstructor},
-        BuffersBuilder, FillAttributes, FillOptions, FillTessellator, LineCap, LineJoin,
-        StrokeAttributes, StrokeOptions, StrokeTessellator, VertexBuffers,
+        BuffersBuilder, FillAttributes, FillOptions, FillTessellator, StrokeAttributes,
+        VertexBuffers,
     },
 };
 use miniquad::{graphics::*, Context};
 use std::mem;
-use usvg::{Color, NodeKind, Options, Paint, ShapeRendering, Tree};
+use usvg::Color;
 
-const PATH_TOLERANCE: f32 = 0.01;
 const MAX_MESH_INSTANCES: usize = 1024 * 1024;
 
 /// A reference to an uploaded vector path.
@@ -122,56 +122,7 @@ impl Render {
     where
         S: AsRef<str>,
     {
-        // Tessalate the path, converting it to vertices & indices
-        let mut geometry: VertexBuffers<Vertex, u16> = VertexBuffers::new();
-
-        let mut fill_tess = FillTessellator::new();
-        let mut stroke_tess = StrokeTessellator::new();
-
-        // Parse the SVG string
-        let options = Options {
-            shape_rendering: ShapeRendering::GeometricPrecision,
-            keep_named_groups: true,
-            ..Default::default()
-        };
-        let rtree = Tree::from_str(svg.as_ref(), &options)?;
-        // Loop over all nodes in the SVG tree
-        for node in rtree.root().descendants() {
-            if let NodeKind::Path(ref path) = *node.borrow() {
-                if let Some(ref fill) = path.fill {
-                    // Get the fill color
-                    let color = match fill.paint {
-                        Paint::Color(color) => color,
-                        _ => todo!("Color not defined"),
-                    };
-
-                    // Tessellate the fill
-                    fill_tess
-                        .tessellate(
-                            convert_path(path),
-                            &FillOptions::tolerance(PATH_TOLERANCE),
-                            &mut BuffersBuilder::new(
-                                &mut geometry,
-                                VertexCtor::new(color, fill.opacity.value() as f32),
-                            ),
-                        )
-                        .expect("Tessellation failed");
-                }
-
-                if let Some(ref stroke) = path.stroke {
-                    let (color, stroke_opts) = convert_stroke(stroke);
-                    // Tessellate the stroke
-                    let _ = stroke_tess.tessellate(
-                        convert_path(path),
-                        &stroke_opts.with_tolerance(PATH_TOLERANCE),
-                        &mut BuffersBuilder::new(
-                            &mut geometry,
-                            VertexCtor::new(color, stroke.opacity.value() as f32),
-                        ),
-                    );
-                }
-            }
-        }
+        let geometry = svg::parse_svg(svg)?;
 
         let vertices = geometry.vertices.clone();
         let indices = geometry.indices.clone();
@@ -209,10 +160,10 @@ impl Render {
                 // TODO add a better mechanism to detect manual changes
                 if !draw_call.refresh_instances {
                     draw_call.instances = query.iter(world).map(|pos| *pos).collect();
-                }
 
-                // Tell the render loop that the position of the instances have been changed
-                draw_call.refresh_instances = true;
+                    // Tell the render loop that the position of the instances have been changed
+                    draw_call.refresh_instances = true;
+                }
             });
     }
 
@@ -315,7 +266,7 @@ impl DrawCall {
 
 #[repr(C)]
 #[derive(Debug, Copy, Clone, Default)]
-struct Vertex {
+pub struct Vertex {
     pos: [f32; 2],
     color: [f32; 4],
 }
@@ -380,7 +331,7 @@ impl Instance {
 }
 
 /// Used by lyon to create vertices.
-struct VertexCtor {
+pub struct VertexCtor {
     color: [f32; 4],
 }
 
@@ -413,133 +364,6 @@ impl StrokeVertexConstructor<Vertex> for VertexCtor {
             color: self.color,
         }
     }
-}
-
-struct PathConvIter<'a> {
-    iter: std::slice::Iter<'a, usvg::PathSegment>,
-    prev: Point,
-    first: Point,
-    needs_end: bool,
-    deferred: Option<PathEvent>,
-}
-
-impl<'l> Iterator for PathConvIter<'l> {
-    type Item = PathEvent;
-    fn next(&mut self) -> Option<PathEvent> {
-        if self.deferred.is_some() {
-            return self.deferred.take();
-        }
-
-        let next = self.iter.next();
-        match next {
-            Some(usvg::PathSegment::MoveTo { x, y }) => {
-                if self.needs_end {
-                    let last = self.prev;
-                    let first = self.first;
-                    self.needs_end = false;
-                    self.prev = point(x, y);
-                    self.deferred = Some(PathEvent::Begin { at: self.prev });
-                    self.first = self.prev;
-                    Some(PathEvent::End {
-                        last,
-                        first,
-                        close: false,
-                    })
-                } else {
-                    self.first = point(x, y);
-                    Some(PathEvent::Begin { at: self.first })
-                }
-            }
-            Some(usvg::PathSegment::LineTo { x, y }) => {
-                self.needs_end = true;
-                let from = self.prev;
-                self.prev = point(x, y);
-                Some(PathEvent::Line {
-                    from,
-                    to: self.prev,
-                })
-            }
-            Some(usvg::PathSegment::CurveTo {
-                x1,
-                y1,
-                x2,
-                y2,
-                x,
-                y,
-            }) => {
-                self.needs_end = true;
-                let from = self.prev;
-                self.prev = point(x, y);
-                Some(PathEvent::Cubic {
-                    from,
-                    ctrl1: point(x1, y1),
-                    ctrl2: point(x2, y2),
-                    to: self.prev,
-                })
-            }
-            Some(usvg::PathSegment::ClosePath) => {
-                self.needs_end = false;
-                self.prev = self.first;
-                Some(PathEvent::End {
-                    last: self.prev,
-                    first: self.first,
-                    close: true,
-                })
-            }
-            None => {
-                if self.needs_end {
-                    self.needs_end = false;
-                    let last = self.prev;
-                    let first = self.first;
-                    Some(PathEvent::End {
-                        last,
-                        first,
-                        close: false,
-                    })
-                } else {
-                    None
-                }
-            }
-        }
-    }
-}
-
-fn point(x: &f64, y: &f64) -> Point {
-    Point::new((*x) as f32, (*y) as f32)
-}
-
-fn convert_path<'a>(p: &'a usvg::Path) -> PathConvIter<'a> {
-    PathConvIter {
-        iter: p.data.iter(),
-        first: Point::new(0.0, 0.0),
-        prev: Point::new(0.0, 0.0),
-        deferred: None,
-        needs_end: false,
-    }
-}
-
-fn convert_stroke(s: &usvg::Stroke) -> (Color, StrokeOptions) {
-    let color = match s.paint {
-        usvg::Paint::Color(c) => c,
-        _ => todo!("No fallback color"),
-    };
-    let linecap = match s.linecap {
-        usvg::LineCap::Butt => LineCap::Butt,
-        usvg::LineCap::Square => LineCap::Square,
-        usvg::LineCap::Round => LineCap::Round,
-    };
-    let linejoin = match s.linejoin {
-        usvg::LineJoin::Miter => LineJoin::Miter,
-        usvg::LineJoin::Bevel => LineJoin::Bevel,
-        usvg::LineJoin::Round => LineJoin::Round,
-    };
-
-    let opt = StrokeOptions::tolerance(PATH_TOLERANCE)
-        .with_line_width(s.width.value() as f32)
-        .with_line_cap(linecap)
-        .with_line_join(linejoin);
-
-    (color, opt)
 }
 
 mod geom_shader {

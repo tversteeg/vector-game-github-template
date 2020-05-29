@@ -1,6 +1,7 @@
 mod debug;
 mod physics;
 mod render;
+mod svg;
 
 use crate::{
     debug::DebugPhysics,
