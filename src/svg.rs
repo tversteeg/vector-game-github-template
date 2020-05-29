@@ -12,8 +12,7 @@ use lyon::{
         StrokeTessellator, VertexBuffers,
     },
 };
-use nalgebra::convert as f;
-use nalgebra::{Isometry2, RealField, Vector2};
+use nalgebra::{convert as f, Isometry2, RealField, Vector2};
 use ncollide2d::shape::{Ball, Compound, Cuboid, ShapeHandle};
 use std::borrow::Cow;
 use usvg::{Color, NodeKind, Options, Paint, Path, PathSegment, ShapeRendering, Stroke, Tree};
@@ -73,6 +72,12 @@ impl Svg {
     {
         let mesh = self.upload(render)?;
 
+        let is_ground = self
+            .metadata_collider_element()
+            .ok_or_else(|| anyhow!("Metadata tag missing"))?
+            .attributes
+            .contains_key("ground");
+
         let rigid_body = Physics::default_rigid_body_builder();
         let collider = Physics::default_collider_builder(
             self.parse_metadata_colliders()
@@ -80,21 +85,21 @@ impl Svg {
         );
 
         Ok(ObjectDef {
+            is_ground,
             mesh,
             rigid_body,
             collider,
         })
     }
 
+    /// Get the colliders from the SVG metadata.
     fn parse_metadata_colliders<N>(&self) -> Option<Compound<N>>
     where
         N: RealField,
     {
-        let metadata = self.metadata.as_ref()?;
         // Get the colliders element in the metadata section
-        let shapes = metadata
-            .get_child("colliders")
-            .or_else(|| metadata.get_child("collider"))?
+        let shapes = self
+            .metadata_collider_element()?
             .children
             .iter()
             .map(|node| {
@@ -151,6 +156,15 @@ impl Svg {
         } else {
             None
         }
+    }
+
+    /// Get the collider element.
+    pub fn metadata_collider_element(&self) -> Option<&Element> {
+        let metadata = self.metadata.as_ref()?;
+
+        metadata
+            .get_child("colliders")
+            .or_else(|| metadata.get_child("collider"))
     }
 }
 

@@ -1,6 +1,6 @@
 use generational_arena::Index;
 use nalgebra::convert as f;
-use nalgebra::{Point2, RealField, Vector2};
+use nalgebra::{RealField, Vector2};
 use ncollide2d::shape::{Ball, Capsule, Cuboid, Shape, ShapeHandle};
 use nphysics2d::{
     force_generator::DefaultForceGeneratorSet,
@@ -27,8 +27,10 @@ pub struct Physics<N: RealField> {
 impl<N: RealField> Physics<N> {
     /// Instantiate the physics world.
     pub fn new(gravity: N) -> Self {
+        let mechanical_world = DefaultMechanicalWorld::new(Vector2::new(nalgebra::zero(), gravity));
+
         Self {
-            mechanical_world: DefaultMechanicalWorld::new(Vector2::new(nalgebra::zero(), gravity)),
+            mechanical_world,
             geometrical_world: DefaultGeometricalWorld::new(),
             bodies: DefaultBodySet::new(),
             colliders: DefaultColliderSet::new(),
@@ -138,33 +140,26 @@ impl<N: RealField> Physics<N> {
             .collect()
     }
 
-    pub fn spawn_ground(&mut self, position: Vector2<N>, size: Vector2<N>) -> RigidBody {
-        let ground_shape = ShapeHandle::new(Cuboid::new(size));
-        let co = ColliderDesc::new(ground_shape).translation(position);
-
-        self.spawn_body(Ground::new(), &co)
-    }
-
     /// Helps making constructing rigid bodies easier.
     pub fn default_rigid_body_builder() -> RigidBodyDesc<N> {
         RigidBodyDesc::new()
-            .rotation(nalgebra::zero())
             .gravity_enabled(true)
             .status(BodyStatus::Dynamic)
-            .linear_damping(f(0.0))
-            .angular_damping(f(0.0))
-            .max_linear_velocity(f(50.0))
-            .max_angular_velocity(f(1.7))
-            .angular_inertia(f(3.0))
-            .mass(f(10.0))
-            .local_center_of_mass(Point2::new(f(1.0), f(1.0)))
+            //.linear_damping(f(0.0))
+            //.angular_damping(f(0.0))
+            //.max_linear_velocity(f(200.0))
+            //.max_angular_velocity(f(1.7))
+            //.angular_inertia(f(3.0))
+            //.local_center_of_mass(Point2::new(f(1.0), f(1.0)))
+            .mass(f(100.0))
     }
 
     /// Helps making constructing collision objects for rigid bodies easier.
     pub fn default_collider_builder<S: Shape<N>>(shape: S) -> ColliderDesc<N> {
         ColliderDesc::new(ShapeHandle::new(shape))
-            .density(f(1.3))
-            .material(MaterialHandle::new(BasicMaterial::new(f(0.3), f(0.8))))
+            .margin(f(0.1))
+            .density(f(0.1))
+            .material(MaterialHandle::new(BasicMaterial::new(f(0.1), f(0.5))))
     }
 }
 

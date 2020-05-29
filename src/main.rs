@@ -43,43 +43,32 @@ impl Game {
         // Setup the OpenGL render part
         let mut render = Render::new(ctx);
 
-        // Add a SVG
+        // Parse SVG and convert it to object definitions
         let character_def = Svg::from_str(include_str!("../assets/single-character.svg"))?
             .into_object_def(&mut render)?;
+        let mut ground_def =
+            Svg::from_str(include_str!("../assets/ground.svg"))?.into_object_def(&mut render)?;
 
         // Instantiate the physics engine
-        let mut physics = Physics::new(9.81 * 10.0);
+        let mut physics = Physics::new(9.81 * 100.0);
 
         // Instantiate the ECS
         let universe = Universe::new();
         let mut world = universe.create_world();
 
+        // Add the ground
+        world.insert(
+            (ground_def.mesh(),),
+            vec![ground_def.spawn(&mut physics, Vec2::new(0.0, 100.0))],
+        );
+
         // Add characters with rigid bodies
         world.insert(
             (character_def.mesh(),),
-            (0..3).map(|x| character_def.spawn(&mut physics, Vec2::new(x as f64, 0.0))),
-        );
-
-        // Add siege towers
-        /*
-        world.insert(
-            (siege_tower_mesh,),
-            (0..9).map(|x| {
-                let rigid_body_desc = Physics::default_rigid_body_builder(
-                    Vec2::new(x as f64, 0.0),
-                    Velocity::linear(x as f64, 0.0),
-                );
-                let collider_body_desc = Physics::default_collider_builder(Ball::new(100.0));
-                (
-                    Instance::new(0.0, 0.0),
-                    physics.spawn_rigid_body(&rigid_body_desc, &collider_body_desc),
-                )
+            (0..10).map(|i| {
+                character_def.spawn(&mut physics, Vec2::new((i * 20) as f64, (i * 10) as f64))
             }),
         );
-        */
-
-        // Add the ground
-        physics.spawn_ground(Vec2::new(0.0, 50.0), Vec2::new(500.0, 20.0));
 
         // Setup the ECS resources with the physics system
         world.resources.insert(physics);
@@ -93,10 +82,11 @@ impl Game {
             .with_query(<(Write<Instance>, Read<RigidBody>)>::query())
             .build(|_, mut world, physics, query| {
                 for (mut instance, rigid_body) in query.iter(&mut world) {
-                    let (x, y, rotation) = physics.position(&rigid_body).unwrap();
-                    instance.set_x(x as f32);
-                    instance.set_y(y as f32);
-                    instance.set_rotation(rotation as f32);
+                    if let Some((x, y, rotation)) = physics.position(&rigid_body) {
+                        instance.set_x(x as f32);
+                        instance.set_y(y as f32);
+                        instance.set_rotation(rotation as f32);
+                    }
                 }
             });
 
