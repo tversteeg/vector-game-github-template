@@ -1,7 +1,7 @@
 use crate::{render::{Mesh, Vertex, VertexCtor, Render}, object::ObjectDef, physics::Physics};
-use ncollide2d::shape::{Ball, Cuboid};
+use ncollide2d::shape::{Ball, Cuboid, Compound, ShapeHandle};
 use nalgebra::convert as f;
-use nalgebra::RealField;
+use nalgebra::{Isometry2, RealField, Vector2};
 use xmltree::Element;
 use std::borrow::Cow;
 use anyhow::{anyhow, Result};
@@ -65,13 +65,62 @@ impl Svg {
         let mesh = self.upload(render)?;
 
         let rigid_body = Physics::default_rigid_body_builder();
-        let collider = Physics::default_collider_builder(Ball::new(f(10.0)));
+        let collider = Physics::default_collider_builder(self.parse_metadata_colliders().ok_or_else(|| anyhow!("Could not find colliders in shape"))?);
 
         Ok(ObjectDef {
             mesh,
             rigid_body,
             collider,
         })
+    }
+
+    fn parse_metadata_colliders<N>(&self) -> Option<Compound<N>>
+        where N: RealField
+    {
+        let metadata = self.metadata.as_ref()?;
+        // Get the colliders element in the metadata section
+        let shapes = metadata.get_child("colliders").or_else(|| metadata.get_child("collider"))?.children
+            .iter()
+            .map(|node| {
+                let element = node.as_element().expect("Node is not a proper XML element");
+                let (offset, shape_handle) = match element.name.as_str() {
+                    // Parse an SVG circle element
+                    "circle" => {
+                        let offset_x = element.attributes["cx"].parse::<f64>().expect("Node is not a proper floating point");
+                        let offset_y = element.attributes["cy"].parse::<f64>().expect("Node is not a proper floating point");
+                        let offset = Vector2::new(f(offset_x), f(offset_y));
+
+
+                        let radius = element.attributes["r"].parse::<f64>().expect("Node is not a proper floating point");
+                        let shape = Ball::<N>::new(f(radius));
+
+                        (offset, ShapeHandle::new(shape))
+                    },
+                    // Parse an SVG rectangle element
+                    "rect" => {
+                        let offset_x = element.attributes["x"].parse::<f64>().expect("Node is not a proper floating point");
+                        let offset_y = element.attributes["y"].parse::<f64>().expect("Node is not a proper floating point");
+                        let width = element.attributes["width"].parse::<f64>().expect("Node is not a proper floating point");
+                        let height = element.attributes["height"].parse::<f64>().expect("Node is not a proper floating point");
+
+                        let offset = Vector2::new(f(offset_x + width / 2.0), f(offset_y + height / 2.0));
+
+                        let shape = Cuboid::<N>::new(Vector2::new(f(width / 2.0), f(height / 2.0)));
+
+                        (offset, ShapeHandle::new(shape))
+                    }
+                    other => panic!("Unrecognized metadata collider element \"{}\".", other),
+                };
+
+                (Isometry2::new(offset, nalgebra::zero()), shape_handle)
+            })
+            .collect::<Vec<_>>();
+
+        if !shapes.is_empty() {
+            Some(Compound::new(shapes))
+        } else {
+            None
+        }
     }
 }
 
