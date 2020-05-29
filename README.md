@@ -5,7 +5,8 @@
 - WASM target, check https://tversteeg.nl/vector-game-github-template
 - SVG loading
 - Instanced rendering on GPU
-- Smooth lines with FXAA
+- Physics simulation with colliders embedded in SVG
+- ECS
 
 ## How to use
 
