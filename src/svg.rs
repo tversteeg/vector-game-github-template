@@ -1,4 +1,6 @@
 use crate::render::{Mesh, Vertex, VertexCtor, Render};
+use xmltree::Element;
+use std::borrow::Cow;
 use anyhow::{anyhow, Result};
 use lyon::{
     math::Point,
@@ -14,7 +16,10 @@ const PATH_TOLERANCE: f32 = 0.01;
 
 /// A parsed SVG containing the mesh and the specific metadata.
 pub struct Svg {
+    /// The lyon geometry.
     geometry: VertexBuffers<Vertex, u16>,
+    /// The metadata XML node.
+    metadata: Option<Element>,
 }
 
 impl Svg {
@@ -28,14 +33,24 @@ impl Svg {
         };
         let rtree = Tree::from_str(svg.as_ref(), &options)?;
 
+        // Parse the SVG as XML to get the metadata
+        let document = Element::parse(svg.as_bytes())?;
+        let metadata = document.get_child("metadata").map(|element| element.clone());
+
         Ok(Self {
-            geometry: parse_node(rtree)?
+            geometry: parse_node(rtree)?,
+            metadata
         })
     }
 
     /// Upload it and get a mesh.
     pub fn upload(&self, render: &mut Render) -> Result<Mesh> {
         render.upload_buffers(&self.geometry)
+    }
+
+    /// Get the value of a metadata field.
+    pub fn metadata(&self, key: &str) -> Option<Cow<str>> {
+        self.metadata.as_ref()?.get_child(key).map(|element| element.get_text()).flatten()
     }
 }
 
