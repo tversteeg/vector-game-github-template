@@ -1,9 +1,8 @@
-use crate::{render::{Mesh, Vertex, VertexCtor, Render}, object::ObjectDef, physics::Physics};
-use ncollide2d::shape::{Ball, Cuboid, Compound, ShapeHandle};
-use nalgebra::convert as f;
-use nalgebra::{Isometry2, RealField, Vector2};
-use xmltree::Element;
-use std::borrow::Cow;
+use crate::{
+    object::ObjectDef,
+    physics::Physics,
+    render::{Mesh, Render, Vertex, VertexCtor},
+};
 use anyhow::{anyhow, Result};
 use lyon::{
     math::Point,
@@ -13,7 +12,12 @@ use lyon::{
         StrokeTessellator, VertexBuffers,
     },
 };
+use nalgebra::convert as f;
+use nalgebra::{Isometry2, RealField, Vector2};
+use ncollide2d::shape::{Ball, Compound, Cuboid, ShapeHandle};
+use std::borrow::Cow;
 use usvg::{Color, NodeKind, Options, Paint, Path, PathSegment, ShapeRendering, Stroke, Tree};
+use xmltree::Element;
 
 const PATH_TOLERANCE: f32 = 0.01;
 
@@ -34,15 +38,15 @@ impl Svg {
             keep_named_groups: false,
             ..Default::default()
         };
-        let rtree = Tree::from_str(svg.as_ref(), &options)?;
+        let rtree = Tree::from_str(svg, &options)?;
 
         // Parse the SVG as XML to get the metadata
         let document = Element::parse(svg.as_bytes())?;
-        let metadata = document.get_child("metadata").map(|element| element.clone());
+        let metadata = document.get_child("metadata").cloned();
 
         Ok(Self {
             geometry: parse_node(rtree)?,
-            metadata
+            metadata,
         })
     }
 
@@ -53,19 +57,27 @@ impl Svg {
 
     /// Get the value of a metadata field.
     pub fn metadata(&self, key: &str) -> Option<Cow<str>> {
-        self.metadata.as_ref()?.get_child(key).map(|element| element.get_text()).flatten()
+        self.metadata
+            .as_ref()?
+            .get_child(key)
+            .map(|element| element.get_text())
+            .flatten()
     }
 
     /// Build an object definition.
     ///
     /// Also upload the mesh.
     pub fn into_object_def<N>(self, render: &mut Render) -> Result<ObjectDef<N>>
-        where N: RealField
+    where
+        N: RealField,
     {
         let mesh = self.upload(render)?;
 
         let rigid_body = Physics::default_rigid_body_builder();
-        let collider = Physics::default_collider_builder(self.parse_metadata_colliders().ok_or_else(|| anyhow!("Could not find colliders in shape"))?);
+        let collider = Physics::default_collider_builder(
+            self.parse_metadata_colliders()
+                .ok_or_else(|| anyhow!("Could not find colliders in shape"))?,
+        );
 
         Ok(ObjectDef {
             mesh,
@@ -75,35 +87,53 @@ impl Svg {
     }
 
     fn parse_metadata_colliders<N>(&self) -> Option<Compound<N>>
-        where N: RealField
+    where
+        N: RealField,
     {
         let metadata = self.metadata.as_ref()?;
         // Get the colliders element in the metadata section
-        let shapes = metadata.get_child("colliders").or_else(|| metadata.get_child("collider"))?.children
+        let shapes = metadata
+            .get_child("colliders")
+            .or_else(|| metadata.get_child("collider"))?
+            .children
             .iter()
             .map(|node| {
                 let element = node.as_element().expect("Node is not a proper XML element");
                 let (offset, shape_handle) = match element.name.as_str() {
                     // Parse an SVG circle element
                     "circle" => {
-                        let offset_x = element.attributes["cx"].parse::<f64>().expect("Node is not a proper floating point");
-                        let offset_y = element.attributes["cy"].parse::<f64>().expect("Node is not a proper floating point");
+                        let offset_x = element.attributes["cx"]
+                            .parse::<f64>()
+                            .expect("Node is not a proper floating point");
+                        let offset_y = element.attributes["cy"]
+                            .parse::<f64>()
+                            .expect("Node is not a proper floating point");
                         let offset = Vector2::new(f(offset_x), f(offset_y));
 
-
-                        let radius = element.attributes["r"].parse::<f64>().expect("Node is not a proper floating point");
+                        let radius = element.attributes["r"]
+                            .parse::<f64>()
+                            .expect("Node is not a proper floating point");
                         let shape = Ball::<N>::new(f(radius));
 
                         (offset, ShapeHandle::new(shape))
-                    },
+                    }
                     // Parse an SVG rectangle element
                     "rect" => {
-                        let offset_x = element.attributes["x"].parse::<f64>().expect("Node is not a proper floating point");
-                        let offset_y = element.attributes["y"].parse::<f64>().expect("Node is not a proper floating point");
-                        let width = element.attributes["width"].parse::<f64>().expect("Node is not a proper floating point");
-                        let height = element.attributes["height"].parse::<f64>().expect("Node is not a proper floating point");
+                        let offset_x = element.attributes["x"]
+                            .parse::<f64>()
+                            .expect("Node is not a proper floating point");
+                        let offset_y = element.attributes["y"]
+                            .parse::<f64>()
+                            .expect("Node is not a proper floating point");
+                        let width = element.attributes["width"]
+                            .parse::<f64>()
+                            .expect("Node is not a proper floating point");
+                        let height = element.attributes["height"]
+                            .parse::<f64>()
+                            .expect("Node is not a proper floating point");
 
-                        let offset = Vector2::new(f(offset_x + width / 2.0), f(offset_y + height / 2.0));
+                        let offset =
+                            Vector2::new(f(offset_x + width / 2.0), f(offset_y + height / 2.0));
 
                         let shape = Cuboid::<N>::new(Vector2::new(f(width / 2.0), f(height / 2.0)));
 
@@ -213,8 +243,7 @@ impl<'l> Iterator for PathConvIter<'l> {
     }
 }
 
-fn parse_node(rtree: Tree) -> Result<VertexBuffers<Vertex, u16>>
-{
+fn parse_node(rtree: Tree) -> Result<VertexBuffers<Vertex, u16>> {
     // Tessalate the path, converting it to vertices & indices
     let mut geometry: VertexBuffers<Vertex, u16> = VertexBuffers::new();
 
@@ -266,7 +295,7 @@ fn point(x: &f64, y: &f64) -> Point {
     Point::new((*x) as f32, (*y) as f32)
 }
 
-fn convert_path<'a>(p: &'a Path) -> PathConvIter<'a> {
+fn convert_path(p: &Path) -> PathConvIter {
     PathConvIter {
         iter: p.data.iter(),
         first: Point::new(0.0, 0.0),

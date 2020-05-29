@@ -23,7 +23,6 @@ use miniquad::{
 };
 
 type Vec2 = nalgebra::Vector2<f64>;
-type Velocity = nphysics2d::math::Velocity<f64>;
 
 const WIDTH: usize = 800;
 const HEIGHT: usize = 600;
@@ -45,7 +44,8 @@ impl Game {
         let mut render = Render::new(ctx);
 
         // Add a SVG
-        let character_def = Svg::from_str(include_str!("../assets/single-character.svg"))?.into_object_def(&mut render)?;
+        let character_def = Svg::from_str(include_str!("../assets/single-character.svg"))?
+            .into_object_def(&mut render)?;
 
         // Instantiate the physics engine
         let mut physics = Physics::new(9.81 * 10.0);
@@ -57,9 +57,7 @@ impl Game {
         // Add characters with rigid bodies
         world.insert(
             (character_def.mesh(),),
-            (0..3).map(|x| {
-                character_def.spawn(&mut physics, Vec2::new(x as f64, 0.0))
-            }),
+            (0..3).map(|x| character_def.spawn(&mut physics, Vec2::new(x as f64, 0.0))),
         );
 
         // Add siege towers

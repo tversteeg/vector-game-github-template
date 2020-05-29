@@ -1,4 +1,4 @@
-use crate::svg;
+
 use anyhow::Result;
 use legion::{
     filter::filter_fns::tag_value,
@@ -101,7 +101,7 @@ impl Render {
                 .unwrap();
         }
         let vertices = geometry.vertices.clone();
-        let indices = geometry.indices.clone();
+        let indices = geometry.indices;
 
         // Create an OpenGL draw call for the path
         let draw_call = DrawCall {
@@ -123,8 +123,7 @@ impl Render {
     /// Upload lyon geometry.
     ///
     /// Returns a reference that can be used to add instances.
-    pub fn upload_buffers(&mut self, geometry: &VertexBuffers<Vertex, u16>) -> Result<Mesh>
-    {
+    pub fn upload_buffers(&mut self, geometry: &VertexBuffers<Vertex, u16>) -> Result<Mesh> {
         let vertices = geometry.vertices.clone();
         let indices = geometry.indices.clone();
 
@@ -207,7 +206,10 @@ impl Render {
             ctx.apply_bindings(bindings);
             ctx.apply_uniforms(&geom_shader::Uniforms {
                 zoom: (self.camera_zoom / width, self.camera_zoom / height),
-                pan: (self.camera_pan.0 - width / 2.0, self.camera_pan.1 - height / 2.0),
+                pan: (
+                    self.camera_pan.0 - width / 2.0,
+                    self.camera_pan.1 - height / 2.0,
+                ),
             });
             ctx.draw(0, dc.indices.len() as i32, dc.instances.len() as i32);
         }

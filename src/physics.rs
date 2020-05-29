@@ -6,7 +6,6 @@ use nphysics2d::{
     force_generator::DefaultForceGeneratorSet,
     joint::DefaultJointConstraintSet,
     material::{BasicMaterial, MaterialHandle},
-    math::Velocity,
     object::{
         Body, BodyPartHandle, BodyStatus, ColliderDesc, DefaultBodyHandle, DefaultBodySet,
         DefaultColliderSet, Ground, RigidBodyDesc,
@@ -176,7 +175,7 @@ pub struct RigidBody {
 }
 
 /// A trait for getting the sizes of shapes.
-trait ShapeSize<N: RealField> {
+pub trait ShapeSize<N: RealField> {
     fn size(&self) -> N;
 }
 
