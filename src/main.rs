@@ -7,6 +7,7 @@ use crate::{
     debug::DebugPhysics,
     physics::{Physics, RigidBody},
     render::{Instance, Render},
+    svg::Svg,
 };
 use anyhow::Result;
 use legion::{
@@ -19,7 +20,7 @@ use miniquad::{
     conf::{Conf, Loading},
     Context, EventHandler, UserData,
 };
-use ncollide2d::shape::{Ball, Capsule};
+use ncollide2d::shape::{Ball, Cuboid};
 
 type Vec2 = nalgebra::Vector2<f64>;
 type Velocity = nphysics2d::math::Velocity<f64>;
@@ -44,12 +45,11 @@ impl Game {
         let mut render = Render::new(ctx);
 
         // Add a SVG
-        let character_mesh = render.upload_svg(include_str!("../assets/single-character.svg"))?;
-        let siege_tower_mesh = render.upload_svg(include_str!("../assets/siege-tower.svg"))?;
-        let ground_mesh = render.upload_svg(include_str!("../assets/ground.svg"))?;
+        let character_svg = Svg::from_str(include_str!("../assets/single-character.svg"))?;
+        let character_mesh = character_svg.upload(&mut render)?;
 
         // Instantiate the physics engine
-        let mut physics = Physics::new(9.81);
+        let mut physics = Physics::new(9.81 * 10.0);
 
         // Instantiate the ECS
         let universe = Universe::new();
@@ -58,12 +58,12 @@ impl Game {
         // Add 10 characters with rigid bodies
         world.insert(
             (character_mesh,),
-            (0..9).map(|x| {
+            (0..3).map(|x| {
                 let rigid_body_desc = Physics::default_rigid_body_builder(
                     Vec2::new(x as f64, 0.0),
                     Velocity::linear(x as f64, 0.0),
                 );
-                let collider_body_desc = Physics::default_collider_builder(Capsule::new(5.0, 5.0));
+                let collider_body_desc = Physics::default_collider_builder(Cuboid::new(Vec2::new(75.0 / 2.0, 175.0 / 2.0)));
                 (
                     Instance::new(0.0, 0.0),
                     physics.spawn_rigid_body(&rigid_body_desc, &collider_body_desc),
@@ -72,6 +72,7 @@ impl Game {
         );
 
         // Add siege towers
+        /*
         world.insert(
             (siege_tower_mesh,),
             (0..9).map(|x| {
@@ -79,16 +80,17 @@ impl Game {
                     Vec2::new(x as f64, 0.0),
                     Velocity::linear(x as f64, 0.0),
                 );
-                let collider_body_desc = Physics::default_collider_builder(Ball::new(1.0));
+                let collider_body_desc = Physics::default_collider_builder(Ball::new(100.0));
                 (
                     Instance::new(0.0, 0.0),
                     physics.spawn_rigid_body(&rigid_body_desc, &collider_body_desc),
                 )
             }),
         );
+        */
 
         // Add the ground
-        physics.spawn_ground(Vec2::new(0.0, 50.0), Vec2::new(100.0, 20.0));
+        physics.spawn_ground(Vec2::new(0.0, 50.0), Vec2::new(500.0, 20.0));
 
         // Setup the ECS resources with the physics system
         world.resources.insert(physics);

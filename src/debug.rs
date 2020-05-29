@@ -18,7 +18,6 @@ const MESH_COLOR: Color = Color {
 /// Render the physics shapes.
 pub struct DebugPhysics {
     circle_mesh: Mesh,
-    capsule_mesh: Mesh,
     cuboid_mesh: Mesh,
 }
 
@@ -26,12 +25,10 @@ impl DebugPhysics {
     /// Instantiate everything and upload the meshes.
     pub fn new(render: &mut Render) -> Self {
         let circle_mesh = Self::circle_mesh(render);
-        let capsule_mesh = Self::capsule_mesh(render);
         let cuboid_mesh = Self::cuboid_mesh(render);
 
         Self {
             circle_mesh,
-            capsule_mesh,
             cuboid_mesh,
         }
     }
@@ -44,25 +41,12 @@ impl DebugPhysics {
             .map(|(x, y, _, scale)| {
                 let mut instance = Instance::new((x) as f32, (y) as f32);
 
-                instance.set_scale((scale) as f32);
+                instance.set_scale(scale as f32);
 
                 instance
             })
             .collect();
         render.set_instances(&self.circle_mesh, circles);
-
-        let capsules = physics
-            .debug_shapes::<Capsule<f64>>()
-            .into_iter()
-            .map(|(x, y, _, scale)| {
-                let mut instance = Instance::new((x) as f32, (y) as f32);
-
-                instance.set_scale((scale) as f32);
-
-                instance
-            })
-            .collect();
-        render.set_instances(&self.capsule_mesh, capsules);
 
         let cuboids = physics
             .debug_shapes::<Cuboid<f64>>()
@@ -70,7 +54,7 @@ impl DebugPhysics {
             .map(|(x, y, _, scale)| {
                 let mut instance = Instance::new((x) as f32, (y) as f32);
 
-                instance.set_scale((scale) as f32);
+                instance.set_scale(scale as f32);
 
                 instance
             })
@@ -81,35 +65,13 @@ impl DebugPhysics {
     /// Upload the circle mesh.
     fn circle_mesh(render: &mut Render) -> Mesh {
         let mut builder = Path::builder();
-        builder.move_to(Point::new(1.0, 0.0));
+        builder.move_to(Point::new(1.0, 0.5));
         builder.arc(
-            Point::new(0.0, 0.0),
-            Vector::new(1.0, 1.0),
+            Point::new(0.5, 0.5),
+            Vector::new(0.5, 0.5),
             Angle::degrees(360.0),
             Angle::degrees(0.0),
         );
-
-        render.upload_path(builder.build().iter(), MESH_COLOR, 0.5)
-    }
-
-    /// Upload the circle mesh.
-    fn capsule_mesh(render: &mut Render) -> Mesh {
-        let mut builder = Path::builder();
-        builder.move_to(Point::new(1.0, 0.0));
-        builder.arc(
-            Point::new(0.0, 0.0),
-            Vector::new(1.0, 1.0),
-            Angle::degrees(180.0),
-            Angle::degrees(0.0),
-        );
-        builder.line_to(Point::new(-1.0, 1.0));
-        builder.arc(
-            Point::new(0.0, 1.0),
-            Vector::new(1.0, -1.0),
-            Angle::degrees(180.0),
-            Angle::degrees(0.0),
-        );
-        builder.close();
 
         render.upload_path(builder.build().iter(), MESH_COLOR, 0.5)
     }

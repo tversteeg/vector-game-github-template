@@ -32,6 +32,9 @@ pub struct Render {
     draw_calls: Vec<DrawCall>,
     /// Whether some draw calls are missing bindings.
     missing_bindings: bool,
+
+    camera_pan: (f32, f32),
+    camera_zoom: f32,
 }
 
 impl Render {
@@ -73,6 +76,8 @@ impl Render {
             pipeline,
             draw_calls: vec![],
             missing_bindings: false,
+            camera_pan: (0.0, 0.0),
+            camera_zoom: 1.0,
         }
     }
 
@@ -115,15 +120,11 @@ impl Render {
         Mesh(self.draw_calls.len() - 1)
     }
 
-    /// Upload a SVG.
+    /// Upload lyon geometry.
     ///
     /// Returns a reference that can be used to add instances.
-    pub fn upload_svg<S>(&mut self, svg: S) -> Result<Mesh>
-    where
-        S: AsRef<str>,
+    pub fn upload_buffers(&mut self, geometry: &VertexBuffers<Vertex, u16>) -> Result<Mesh>
     {
-        let geometry = svg::parse_svg(svg)?;
-
         let vertices = geometry.vertices.clone();
         let indices = geometry.indices.clone();
 
@@ -205,8 +206,8 @@ impl Render {
             ctx.apply_scissor_rect(0, 0, width as i32, height as i32);
             ctx.apply_bindings(bindings);
             ctx.apply_uniforms(&geom_shader::Uniforms {
-                zoom: (2.0 / width, 2.0 / height),
-                pan: (-width / 2.0, -height / 2.0),
+                zoom: (self.camera_zoom / width, self.camera_zoom / height),
+                pan: (self.camera_pan.0 - width / 2.0, self.camera_pan.1 - height / 2.0),
             });
             ctx.draw(0, dc.indices.len() as i32, dc.instances.len() as i32);
         }

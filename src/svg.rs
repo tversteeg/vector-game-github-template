@@ -1,4 +1,4 @@
-use crate::render::{Vertex, VertexCtor};
+use crate::render::{Mesh, Vertex, VertexCtor, Render};
 use anyhow::{anyhow, Result};
 use lyon::{
     math::Point,
@@ -11,6 +11,33 @@ use lyon::{
 use usvg::{Color, NodeKind, Options, Paint, Path, PathSegment, ShapeRendering, Stroke, Tree};
 
 const PATH_TOLERANCE: f32 = 0.01;
+
+/// A parsed SVG containing the mesh and the specific metadata.
+pub struct Svg {
+    geometry: VertexBuffers<Vertex, u16>,
+}
+
+impl Svg {
+    /// Parse a SVG string.
+    pub fn from_str(svg: &str) -> Result<Self> {
+        // Simplify SVG
+        let options = Options {
+            shape_rendering: ShapeRendering::GeometricPrecision,
+            keep_named_groups: false,
+            ..Default::default()
+        };
+        let rtree = Tree::from_str(svg.as_ref(), &options)?;
+
+        Ok(Self {
+            geometry: parse_node(rtree)?
+        })
+    }
+
+    /// Upload it and get a mesh.
+    pub fn upload(&self, render: &mut Render) -> Result<Mesh> {
+        render.upload_buffers(&self.geometry)
+    }
+}
 
 struct PathConvIter<'a> {
     iter: std::slice::Iter<'a, PathSegment>,
@@ -101,9 +128,7 @@ impl<'l> Iterator for PathConvIter<'l> {
     }
 }
 
-pub fn parse_svg<S>(svg: S) -> Result<VertexBuffers<Vertex, u16>>
-where
-    S: AsRef<str>,
+fn parse_node(rtree: Tree) -> Result<VertexBuffers<Vertex, u16>>
 {
     // Tessalate the path, converting it to vertices & indices
     let mut geometry: VertexBuffers<Vertex, u16> = VertexBuffers::new();
@@ -111,13 +136,6 @@ where
     let mut fill_tess = FillTessellator::new();
     let mut stroke_tess = StrokeTessellator::new();
 
-    // Parse the SVG string
-    let options = Options {
-        shape_rendering: ShapeRendering::GeometricPrecision,
-        keep_named_groups: true,
-        ..Default::default()
-    };
-    let rtree = Tree::from_str(svg.as_ref(), &options)?;
     // Loop over all nodes in the SVG tree
     for node in rtree.root().descendants() {
         if let NodeKind::Path(ref path) = *node.borrow() {
