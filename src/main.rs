@@ -46,7 +46,7 @@ impl Game {
         // Parse SVG and convert it to object definitions
         let character_def = Svg::from_str(include_str!("../assets/single-character.svg"))?
             .into_object_def(&mut render)?;
-        let mut ground_def =
+        let ground_def =
             Svg::from_str(include_str!("../assets/ground.svg"))?.into_object_def(&mut render)?;
 
         // Instantiate the physics engine
@@ -59,14 +59,14 @@ impl Game {
         // Add the ground
         world.insert(
             (ground_def.mesh(),),
-            vec![ground_def.spawn(&mut physics, Vec2::new(0.0, 100.0))],
+            vec![ground_def.spawn(&mut physics, Vec2::new(0.0, 100.0), 0)],
         );
 
         // Add characters with rigid bodies
         world.insert(
             (character_def.mesh(),),
             (0..10).map(|i| {
-                character_def.spawn(&mut physics, Vec2::new((i * 20) as f64, (i * 10) as f64))
+                character_def.spawn(&mut physics, Vec2::new((i * 20) as f64, (i * 10) as f64), 1)
             }),
         );
 

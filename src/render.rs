@@ -1,4 +1,3 @@
-
 use anyhow::Result;
 use legion::{
     filter::filter_fns::tag_value,
@@ -60,7 +59,7 @@ impl Render {
             &[
                 VertexAttribute::with_buffer("a_pos", VertexFormat::Float2, 0),
                 VertexAttribute::with_buffer("a_color", VertexFormat::Float4, 0),
-                VertexAttribute::with_buffer("a_inst_pos", VertexFormat::Float2, 1),
+                VertexAttribute::with_buffer("a_inst_pos", VertexFormat::Float3, 1),
                 VertexAttribute::with_buffer("a_inst_rot", VertexFormat::Float1, 1),
                 VertexAttribute::with_buffer("a_inst_scale", VertexFormat::Float1, 1),
             ],
@@ -277,7 +276,7 @@ pub struct Vertex {
 #[repr(C)]
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub struct Instance {
-    position: [f32; 2],
+    position: [f32; 3],
     rotation: f32,
     scale: f32,
 }
@@ -286,7 +285,7 @@ impl Instance {
     /// Create a new instance with a position.
     pub fn new(x: f32, y: f32) -> Self {
         Self {
-            position: [x, y],
+            position: [x, y, 0.0],
             rotation: 0.0,
             scale: 1.0,
         }
@@ -310,6 +309,16 @@ impl Instance {
     /// Get the Y position.
     pub fn y(&self) -> f32 {
         self.position[1]
+    }
+
+    /// Set the Z position.
+    pub fn set_z(&mut self, new: u8) {
+        self.position[2] = (u8::MAX - new) as f32 / 255.0;
+    }
+
+    /// Get the Z position.
+    pub fn z(&self) -> u8 {
+        u8::MAX - (self.position[2] * 255.0) as u8
     }
 
     /// Set the scale.
@@ -379,7 +388,7 @@ uniform vec2 u_pan;
 
 attribute vec2 a_pos;
 attribute vec4 a_color;
-attribute vec2 a_inst_pos;
+attribute vec3 a_inst_pos;
 attribute float a_inst_rot;
 attribute float a_inst_scale;
 
@@ -392,8 +401,8 @@ void main() {
 
     vec2 rotated_pos = a_pos * rotation_mat;
     vec2 scaled_pos = rotated_pos * a_inst_scale;
-    vec2 pos = scaled_pos + a_inst_pos + u_pan;
-    gl_Position = vec4(pos * vec2(1.0, -1.0) * u_zoom, 0.0, 1.0);
+    vec2 pos = scaled_pos + a_inst_pos.xy + u_pan;
+    gl_Position = vec4(pos * vec2(1.0, -1.0) * u_zoom, a_inst_pos.z, 1.0);
 
     color = a_color;
 }

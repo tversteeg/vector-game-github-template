@@ -21,14 +21,14 @@ pub struct ObjectDef<N: RealField> {
 
 impl<N: RealField> ObjectDef<N> {
     /// Spawn a instance of this object which can be added to the ECS system.
-    pub fn spawn(&self, physics: &mut Physics<N>, pos: Vector2<N>) -> (Instance, RigidBody) {
+    pub fn spawn(&self, physics: &mut Physics<N>, pos: Vector2<N>, z: u8) -> (Instance, RigidBody) {
+        let mut instance = Instance::new(0.0, 0.0);
+        instance.set_z(z);
+
         if self.is_ground {
-            (
-                Instance::new(0.0, 0.0),
-                physics.spawn_body(Ground::new(), &self.collider),
-            )
+            (instance, physics.spawn_body(Ground::new(), &self.collider))
         } else {
-            (Instance::new(0.0, 0.0), self.spawn_rigid_body(physics, pos))
+            (instance, self.spawn_rigid_body(physics, pos))
         }
     }
 
