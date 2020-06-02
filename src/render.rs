@@ -205,10 +205,7 @@ impl Render {
             ctx.apply_bindings(bindings);
             ctx.apply_uniforms(&geom_shader::Uniforms {
                 zoom: (self.camera_zoom / width, self.camera_zoom / height),
-                pan: (
-                    self.camera_pan.0 - width / 2.0,
-                    self.camera_pan.1 - height / 2.0,
-                ),
+                pan: (self.camera_pan.0, self.camera_pan.1),
             });
             ctx.draw(0, dc.indices.len() as i32, dc.instances.len() as i32);
         }
@@ -224,6 +221,12 @@ impl Render {
 
         dc.instances = instances;
         dc.refresh_instances = true;
+    }
+
+    /// Set the camera panning position.
+    pub fn set_camera_pos(&mut self, x: f32, y: f32) {
+        self.camera_pan.0 = x;
+        self.camera_pan.1 = y;
     }
 }
 

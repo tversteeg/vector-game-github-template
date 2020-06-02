@@ -145,13 +145,13 @@ impl<N: RealField> Physics<N> {
         RigidBodyDesc::new()
             .gravity_enabled(true)
             .status(BodyStatus::Dynamic)
-            //.linear_damping(f(0.0))
+            .linear_damping(f(0.1))
             //.angular_damping(f(0.0))
             //.max_linear_velocity(f(200.0))
             //.max_angular_velocity(f(1.7))
             //.angular_inertia(f(3.0))
             //.local_center_of_mass(Point2::new(f(1.0), f(1.0)))
-            .mass(f(100.0))
+            .mass(f(1000.0))
     }
 
     /// Helps making constructing collision objects for rigid bodies easier.

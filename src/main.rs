@@ -59,14 +59,18 @@ impl Game {
         // Add the ground
         world.insert(
             (ground_def.mesh(),),
-            vec![ground_def.spawn(&mut physics, Vec2::new(0.0, 100.0), 0)],
+            vec![ground_def.spawn(&mut physics, Vec2::new(0.0, 0.0), 0)],
         );
 
         // Add characters with rigid bodies
         world.insert(
             (character_def.mesh(),),
             (0..10).map(|i| {
-                character_def.spawn(&mut physics, Vec2::new((i * 20) as f64, (i * 10) as f64), 1)
+                character_def.spawn(
+                    &mut physics,
+                    Vec2::new((i * 20) as f64, (-i * 100) as f64),
+                    1,
+                )
             }),
         );
 
@@ -123,6 +127,10 @@ impl EventHandler for Game {
     fn draw(&mut self, ctx: &mut Context) {
         // Render the buffer
         self.render.render(ctx);
+    }
+
+    fn mouse_motion_event(&mut self, _ctx: &mut Context, x: f32, y: f32) {
+        self.render.set_camera_pos(x, y);
     }
 }
 
