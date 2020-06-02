@@ -27,6 +27,9 @@ type Vec2 = nalgebra::Vector2<f64>;
 const WIDTH: usize = 800;
 const HEIGHT: usize = 600;
 
+const ZOOM_FACTOR: f32 = 30.0;
+const MAX_ZOOM: f32 = 20.0;
+
 /// Our game state.
 struct Game {
     /// Our wrapper around the OpenGL calls.
@@ -35,6 +38,8 @@ struct Game {
     world: World,
     /// ECS schedule for the systems.
     schedule: Schedule,
+    /// The camera zoom value.
+    zoom: f32,
 }
 
 impl Game {
@@ -103,6 +108,7 @@ impl Game {
             render,
             world,
             schedule,
+            zoom: 0.0,
         })
     }
 }
@@ -130,7 +136,14 @@ impl EventHandler for Game {
     }
 
     fn mouse_motion_event(&mut self, _ctx: &mut Context, x: f32, y: f32) {
-        self.render.set_camera_pos(x, y);
+        self.render.set_camera_pos(-x, -y);
+    }
+
+    fn mouse_wheel_event(&mut self, _ctx: &mut Context, _x: f32, y: f32) {
+        self.zoom += y;
+        self.zoom = self.zoom.max(-MAX_ZOOM).min(MAX_ZOOM);
+
+        self.render.set_camera_zoom(1.0 + (self.zoom / ZOOM_FACTOR));
     }
 }
 

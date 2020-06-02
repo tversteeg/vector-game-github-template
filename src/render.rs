@@ -228,6 +228,11 @@ impl Render {
         self.camera_pan.0 = x;
         self.camera_pan.1 = y;
     }
+
+    /// Set the camera zooming.
+    pub fn set_camera_zoom(&mut self, zoom: f32) {
+        self.camera_zoom = zoom;
+    }
 }
 
 /// A single uploaded mesh as a draw call.
