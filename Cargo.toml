@@ -22,7 +22,7 @@ hibitset = "0.6.3"
 legion = { version = "0.2.1", default-features = false }
 lyon = { version = "0.15.8", features = ["extra"] }
 miniquad = { git = "https://github.com/not-fl3/miniquad.git" }
-usvg = { version = "0.9.0", default-features = false }
+usvg = { version = "0.9.1", default-features = false }
 xmltree = "0.10.0"
 
 [dependencies.nphysics2d]

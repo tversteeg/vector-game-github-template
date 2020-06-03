@@ -22,7 +22,8 @@ use miniquad::{
     Context, EventHandler, UserData,
 };
 
-type Vec2 = nalgebra::Vector2<f64>;
+type Float = f64;
+type Vec2 = nalgebra::Vector2<Float>;
 
 const WIDTH: usize = 800;
 const HEIGHT: usize = 600;
@@ -49,9 +50,9 @@ impl Game {
         let mut render = Render::new(ctx);
 
         // Parse SVG and convert it to object definitions
-        let character_def = Svg::from_str(include_str!("../assets/single-character.svg"))?
+        let mut character_def = Svg::from_str(include_str!("../assets/single-character.svg"))?
             .into_object_def(&mut render)?;
-        let ground_def =
+        let mut ground_def =
             Svg::from_str(include_str!("../assets/ground.svg"))?.into_object_def(&mut render)?;
 
         // Instantiate the physics engine
@@ -64,7 +65,7 @@ impl Game {
         // Add the ground
         world.insert(
             (ground_def.mesh(),),
-            vec![ground_def.spawn(&mut physics, Vec2::new(0.0, 0.0), 0)],
+            vec![ground_def.spawn(&mut physics, Vec2::new(-2000.0, 0.0), 0)],
         );
 
         // Add characters with rigid bodies

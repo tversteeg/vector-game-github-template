@@ -66,10 +66,7 @@ impl Svg {
     /// Build an object definition.
     ///
     /// Also upload the mesh.
-    pub fn into_object_def<N>(self, render: &mut Render) -> Result<ObjectDef<N>>
-    where
-        N: RealField,
-    {
+    pub fn into_object_def(self, render: &mut Render) -> Result<ObjectDef> {
         let mesh = self.upload(render)?;
 
         let is_ground = self

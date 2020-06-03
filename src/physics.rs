@@ -1,6 +1,5 @@
 use generational_arena::Index;
-use nalgebra::convert as f;
-use nalgebra::{RealField, Vector2};
+use nalgebra::{convert as f, RealField, Vector2};
 use ncollide2d::shape::{Ball, Capsule, Cuboid, Shape, ShapeHandle};
 use nphysics2d::{
     force_generator::DefaultForceGeneratorSet,
