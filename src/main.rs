@@ -1,11 +1,10 @@
-mod debug;
 mod object;
 mod physics;
 mod render;
 mod svg;
 
 use crate::{
-    debug::DebugPhysics,
+    object::ObjectDef,
     physics::{Physics, RigidBody},
     render::{Instance, Render},
     svg::Svg,
@@ -41,6 +40,8 @@ struct Game {
     schedule: Schedule,
     /// The camera zoom value.
     zoom: f32,
+    /// The object definition for arrows.
+    arrow_def: ObjectDef,
 }
 
 impl Game {
@@ -54,6 +55,8 @@ impl Game {
             .into_object_def(&mut render)?;
         let mut ground_def =
             Svg::from_str(include_str!("../assets/ground.svg"))?.into_object_def(&mut render)?;
+        let arrow_def =
+            Svg::from_str(include_str!("../assets/arrow.svg"))?.into_object_def(&mut render)?;
 
         // Instantiate the physics engine
         let mut physics = Physics::new(9.81 * 100.0);
@@ -83,9 +86,6 @@ impl Game {
         // Setup the ECS resources with the physics system
         world.resources.insert(physics);
 
-        // Render debug shapes for the physics
-        world.resources.insert(DebugPhysics::new(&mut render));
-
         // Create the system for updating the instance positions
         let update_positions = SystemBuilder::new("update_positions")
             .read_resource::<Physics<f64>>()
@@ -110,6 +110,7 @@ impl Game {
             world,
             schedule,
             zoom: 0.0,
+            arrow_def,
         })
     }
 }
@@ -120,9 +121,6 @@ impl EventHandler for Game {
         {
             let mut physics = self.world.resources.get_mut::<Physics<f64>>().unwrap();
             physics.step();
-
-            let debug_physics = self.world.resources.get_mut::<DebugPhysics>().unwrap();
-            debug_physics.render(&mut self.render, &physics);
         }
 
         // Run the systems scheduler
