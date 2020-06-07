@@ -20,12 +20,12 @@ anyhow = "1.0.31"
 generational-arena = "0.2.8"
 legion = { version = "0.2.1", default-features = false }
 lyon = "0.15.8"
-miniquad = { version = "0.3.0-alpha.9" }
+miniquad = "0.3.0-alpha.9"
 usvg = { version = "0.9.1", default-features = false }
 xmltree = "0.10.0"
 
 [dependencies.nphysics2d]
-version = "0.15.1"
+version = "0.16.0"
 default-features = false
 features = ["dim2"]
 

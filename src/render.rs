@@ -215,14 +215,6 @@ impl Render {
         ctx.commit_frame();
     }
 
-    /// Overwrite the instances.
-    pub fn set_instances(&mut self, mesh: &Mesh, instances: Vec<Instance>) {
-        let mut dc = &mut self.draw_calls[mesh.0];
-
-        dc.instances = instances;
-        dc.refresh_instances = true;
-    }
-
     /// Set the camera panning position.
     pub fn set_camera_pos(&mut self, x: f32, y: f32) {
         self.camera_pan.0 = x;
