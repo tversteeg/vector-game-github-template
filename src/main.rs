@@ -2,18 +2,12 @@ mod object;
 mod physics;
 mod render;
 mod svg;
+mod unit;
 
-use crate::{
-    object::ObjectDef,
-    physics::{Physics, RigidBody},
-    render::{Instance, Render},
-    svg::Svg,
-};
+use crate::{object::ObjectDef, physics::Physics, render::Render, svg::Svg, unit::UnitBuilder};
 use anyhow::Result;
 use legion::{
-    query::{IntoQuery, Read, Write},
     schedule::Schedule,
-    system::SystemBuilder,
     world::{Universe, World},
 };
 use miniquad::{
@@ -72,22 +66,18 @@ impl Game {
         );
 
         // Add characters with rigid bodies
-        world.insert(
-            (character_def.mesh(),),
-            (0..10).map(|i| {
-                character_def.spawn(
-                    &mut physics,
-                    Vec2::new((i * 20) as f64, (-i * 100) as f64),
-                    1,
-                )
-            }),
-        );
+        for i in 0..10 {
+            UnitBuilder::ally(&mut character_def)
+                .pos((i * 20) as Float, (-i * 100) as Float)
+                .z(1)
+                .spawn(&mut world, &mut physics)
+        }
 
         // Setup the ECS resources with the physics system
         world.resources.insert(physics);
 
         let schedule = Schedule::builder()
-            .add_system(Physics::<f64>::render_system_f64())
+            .add_system(Physics::<Float>::render_system())
             .flush()
             .build();
 

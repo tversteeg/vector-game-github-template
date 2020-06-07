@@ -1,4 +1,4 @@
-use crate::render::Instance;
+use crate::{render::Instance, Float};
 use generational_arena::Index;
 use legion::{
     query::{IntoQuery, Read, Write},
@@ -138,9 +138,9 @@ impl<N: RealField> Physics<N> {
     }
 
     /// Get the system for updating the render instance positions.
-    pub fn render_system_f64() -> Box<dyn Schedulable> {
+    pub fn render_system() -> Box<dyn Schedulable> {
         SystemBuilder::new("update_positions")
-            .read_resource::<Physics<f64>>()
+            .read_resource::<Physics<Float>>()
             .with_query(<(Write<Instance>, Read<RigidBody>)>::query())
             .build(|_, mut world, physics, query| {
                 for (mut instance, rigid_body) in query.iter(&mut world) {

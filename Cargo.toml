@@ -18,10 +18,9 @@ is-it-maintained-open-issues = { repository = "tversteeg/replace_me" }
 [dependencies]
 anyhow = "1.0.31"
 generational-arena = "0.2.8"
-hibitset = "0.6.3"
 legion = { version = "0.2.1", default-features = false }
-lyon = { version = "0.15.8", features = ["extra"] }
-miniquad = { git = "https://github.com/not-fl3/miniquad.git" }
+lyon = "0.15.8"
+miniquad = { version = "0.3.0-alpha.9" }
 usvg = { version = "0.9.1", default-features = false }
 xmltree = "0.10.0"
 
