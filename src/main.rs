@@ -86,22 +86,8 @@ impl Game {
         // Setup the ECS resources with the physics system
         world.resources.insert(physics);
 
-        // Create the system for updating the instance positions
-        let update_positions = SystemBuilder::new("update_positions")
-            .read_resource::<Physics<f64>>()
-            .with_query(<(Write<Instance>, Read<RigidBody>)>::query())
-            .build(|_, mut world, physics, query| {
-                for (mut instance, rigid_body) in query.iter(&mut world) {
-                    if let Some((x, y, rotation)) = physics.position(&rigid_body) {
-                        instance.set_x(x as f32);
-                        instance.set_y(y as f32);
-                        instance.set_rotation(rotation as f32);
-                    }
-                }
-            });
-
         let schedule = Schedule::builder()
-            .add_system(update_positions)
+            .add_system(Physics::<f64>::render_system_f64())
             .flush()
             .build();
 

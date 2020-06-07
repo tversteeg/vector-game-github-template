@@ -1,13 +1,19 @@
+use crate::render::Instance;
 use generational_arena::Index;
+use legion::{
+    query::{IntoQuery, Read, Write},
+    schedule::Schedulable,
+    system::SystemBuilder,
+};
 use nalgebra::{convert as f, RealField, Vector2};
-use ncollide2d::shape::{Ball, Capsule, Cuboid, Shape, ShapeHandle};
+use ncollide2d::shape::{Shape, ShapeHandle};
 use nphysics2d::{
     force_generator::DefaultForceGeneratorSet,
     joint::DefaultJointConstraintSet,
     material::{BasicMaterial, MaterialHandle},
     object::{
         Body, BodyPartHandle, BodyStatus, ColliderDesc, DefaultBodyHandle, DefaultBodySet,
-        DefaultColliderSet, Ground, RigidBodyDesc,
+        DefaultColliderSet, RigidBodyDesc,
     },
     world::{DefaultGeometricalWorld, DefaultMechanicalWorld},
 };
@@ -110,55 +116,41 @@ impl<N: RealField> Physics<N> {
             .collect()
     }
 
-    /// Get the debug info of all objects.
-    ///
-    /// The fields in the tuple returned are: `X`, `Y`, `Rotation`, `Scale`.
-    pub fn debug_shapes<S>(&self) -> Vec<(N, N, N, N)>
-    where
-        S: Shape<N> + ShapeSize<N>,
-    {
-        self.colliders
-            .iter()
-            .filter_map(|(_, collider)| {
-                collider
-                    .shape()
-                    .as_shape::<S>()
-                    .map(|shape| (collider, shape.size()))
-            })
-            .map(|(collider, size)| {
-                let position = collider.position();
-                let translation = position.translation;
-
-                (
-                    translation.x,
-                    translation.y,
-                    position.rotation.angle(),
-                    size,
-                )
-            })
-            .collect()
-    }
-
     /// Helps making constructing rigid bodies easier.
     pub fn default_rigid_body_builder() -> RigidBodyDesc<N> {
         RigidBodyDesc::new()
             .gravity_enabled(true)
             .status(BodyStatus::Dynamic)
             .linear_damping(f(0.1))
-            //.angular_damping(f(0.0))
-            //.max_linear_velocity(f(200.0))
-            //.max_angular_velocity(f(1.7))
-            //.angular_inertia(f(3.0))
-            //.local_center_of_mass(Point2::new(f(1.0), f(1.0)))
-            .mass(f(1000.0))
+        //.angular_damping(f(0.0))
+        //.max_linear_velocity(f(200.0))
+        //.max_angular_velocity(f(1.7))
+        //.angular_inertia(f(3.0))
+        //.local_center_of_mass(Point2::new(f(1.0), f(1.0)))
     }
 
     /// Helps making constructing collision objects for rigid bodies easier.
     pub fn default_collider_builder<S: Shape<N>>(shape: S) -> ColliderDesc<N> {
         ColliderDesc::new(ShapeHandle::new(shape))
             .margin(f(0.1))
-            .density(f(0.1))
+            .density(f(0.2))
             .material(MaterialHandle::new(BasicMaterial::new(f(0.1), f(0.5))))
+    }
+
+    /// Get the system for updating the render instance positions.
+    pub fn render_system_f64() -> Box<dyn Schedulable> {
+        SystemBuilder::new("update_positions")
+            .read_resource::<Physics<f64>>()
+            .with_query(<(Write<Instance>, Read<RigidBody>)>::query())
+            .build(|_, mut world, physics, query| {
+                for (mut instance, rigid_body) in query.iter(&mut world) {
+                    if let Some((x, y, rotation)) = physics.position(&rigid_body) {
+                        instance.set_x(x as f32);
+                        instance.set_y(y as f32);
+                        instance.set_rotation(rotation as f32);
+                    }
+                }
+            })
     }
 }
 
@@ -166,27 +158,4 @@ impl<N: RealField> Physics<N> {
 pub struct RigidBody {
     body_index: DefaultBodyHandle,
     collider_index: Index,
-}
-
-/// A trait for getting the sizes of shapes.
-pub trait ShapeSize<N: RealField> {
-    fn size(&self) -> N;
-}
-
-impl<N: RealField> ShapeSize<N> for Capsule<N> {
-    fn size(&self) -> N {
-        self.radius()
-    }
-}
-
-impl<N: RealField> ShapeSize<N> for Cuboid<N> {
-    fn size(&self) -> N {
-        self.half_extents().x * f(2.0)
-    }
-}
-
-impl<N: RealField> ShapeSize<N> for Ball<N> {
-    fn size(&self) -> N {
-        self.radius()
-    }
 }

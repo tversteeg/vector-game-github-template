@@ -3,7 +3,6 @@ use crate::{
     render::{Instance, Mesh},
     Float, Vec2,
 };
-use nalgebra::RealField;
 use nphysics2d::object::{ColliderDesc, Ground, RigidBodyDesc};
 
 /// Definition that can be used to spawn objects.
