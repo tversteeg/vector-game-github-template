@@ -2,9 +2,12 @@ mod object;
 mod physics;
 mod render;
 mod svg;
+mod text;
 mod unit;
 
-use crate::{object::ObjectDef, physics::Physics, render::Render, svg::Svg, unit::UnitBuilder};
+use crate::{
+    object::ObjectDef, physics::Physics, render::Render, svg::Svg, text::Font, unit::UnitBuilder,
+};
 use anyhow::Result;
 use legion::{
     schedule::Schedule,
@@ -51,6 +54,8 @@ impl Game {
             Svg::from_str(include_str!("../assets/ground.svg"))?.into_object_def(&mut render)?;
         let arrow_def =
             Svg::from_str(include_str!("../assets/arrow.svg"))?.into_object_def(&mut render)?;
+
+        let font = Font::from_bytes(include_bytes!("../assets/FetteNationalFraktur.ttf"))?;
 
         // Instantiate the physics engine
         let mut physics = Physics::new(9.81 * 100.0);
