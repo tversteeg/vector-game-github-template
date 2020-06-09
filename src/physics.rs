@@ -99,23 +99,6 @@ impl<N: RealField> Physics<N> {
         })
     }
 
-    /// Get all the positions (with rotation) of all objects.
-    pub fn positions<S>(&self) -> Vec<(N, N, N)>
-    where
-        S: Shape<N>,
-    {
-        self.colliders
-            .iter()
-            .filter(|(_, collider)| collider.shape().as_shape::<S>().is_some())
-            .map(|(_, collider)| {
-                let position = collider.position();
-                let translation = position.translation;
-
-                (translation.x, translation.y, position.rotation.angle())
-            })
-            .collect()
-    }
-
     /// Helps making constructing rigid bodies easier.
     pub fn default_rigid_body_builder() -> RigidBodyDesc<N> {
         RigidBodyDesc::new()

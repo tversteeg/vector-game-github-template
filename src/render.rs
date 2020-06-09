@@ -62,6 +62,7 @@ impl Render {
                 VertexAttribute::with_buffer("a_inst_pos", VertexFormat::Float3, 1),
                 VertexAttribute::with_buffer("a_inst_rot", VertexFormat::Float1, 1),
                 VertexAttribute::with_buffer("a_inst_scale", VertexFormat::Float1, 1),
+                VertexAttribute::with_buffer("a_inst_color", VertexFormat::Float4, 1),
             ],
             shader,
             PipelineParams {
@@ -279,6 +280,8 @@ pub struct Instance {
     position: [f32; 3],
     rotation: f32,
     scale: f32,
+    color: [f32; 3],
+    alpha: f32,
 }
 
 impl Instance {
@@ -288,6 +291,8 @@ impl Instance {
             position: [x, y, 0.0],
             rotation: 0.0,
             scale: 1.0,
+            color: [1.0, 1.0, 1.0],
+            alpha: 1.0,
         }
     }
 
@@ -340,6 +345,16 @@ impl Instance {
     pub fn rotation(&self) -> f32 {
         self.rotation
     }
+
+    /// Set the color multiplier.
+    pub fn set_color_multiplier(&mut self, r: f32, g: f32, b: f32) {
+        self.color = [r, g, b];
+    }
+
+    /// Get the color multiplier.
+    pub fn color_multiplier(&self) -> (f32, f32, f32) {
+        (self.color[0], self.color[1], self.color[2])
+    }
 }
 
 /// Used by lyon to create vertices.
@@ -391,6 +406,7 @@ attribute vec4 a_color;
 attribute vec3 a_inst_pos;
 attribute float a_inst_rot;
 attribute float a_inst_scale;
+attribute vec4 a_inst_color;
 
 varying lowp vec4 color;
 
@@ -404,7 +420,7 @@ void main() {
     vec2 pos = scaled_pos + a_inst_pos.xy + u_pan;
     gl_Position = vec4(pos * vec2(1.0, -1.0) * u_zoom, a_inst_pos.z, 1.0);
 
-    color = a_color;
+    color = a_color * a_inst_color;
 }
 "#;
 

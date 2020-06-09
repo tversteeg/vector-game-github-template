@@ -6,7 +6,12 @@ mod text;
 mod unit;
 
 use crate::{
-    object::ObjectDef, physics::Physics, render::Render, svg::Svg, text::Font, unit::UnitBuilder,
+    object::ObjectDef,
+    physics::Physics,
+    render::{Instance, Render},
+    svg::Svg,
+    text::Font,
+    unit::UnitBuilder,
 };
 use anyhow::Result;
 use legion::{
@@ -55,7 +60,11 @@ impl Game {
         let arrow_def =
             Svg::from_str(include_str!("../assets/arrow.svg"))?.into_object_def(&mut render)?;
 
-        let font = Font::from_bytes(include_bytes!("../assets/FetteNationalFraktur.ttf"))?;
+        // Parse a font
+        let font = Font::from_bytes(include_bytes!("../assets/FetteNationalFraktur.ttf"))?.upload(
+            &mut render,
+            "ABCDEFGHIJKLMOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789".chars(),
+        )?;
 
         // Instantiate the physics engine
         let mut physics = Physics::new(9.81 * 100.0);
@@ -63,6 +72,17 @@ impl Game {
         // Instantiate the ECS
         let universe = Universe::new();
         let mut world = universe.create_world();
+
+        // Render a letter
+        world.insert(
+            (font.letter_mesh('a').unwrap(),),
+            vec![({
+                let mut instance = Instance::new(0.0, 0.0);
+                instance.set_color_multiplier(0.3, 0.2, 0.0);
+
+                instance
+            },)],
+        );
 
         // Add the ground
         world.insert(
