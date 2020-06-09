@@ -74,15 +74,11 @@ impl Game {
         let mut world = universe.create_world();
 
         // Render a letter
-        world.insert(
-            (font.letter_mesh('a').unwrap(),),
-            vec![({
-                let mut instance = Instance::new(0.0, 0.0);
-                instance.set_color_multiplier(0.3, 0.2, 0.0);
-
-                instance
-            },)],
-        );
+        font.text("Test test", 0.0, 0.0)
+            .into_iter()
+            .for_each(|(instance, mesh)| {
+                world.insert((mesh,), vec![({ instance },)]);
+            });
 
         // Add the ground
         world.insert(
