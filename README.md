@@ -4,7 +4,8 @@
 
 - WASM target, check https://tversteeg.nl/vector-game-github-template
 - SVG loading
-- Instanced rendering on GPU
+- TTF loading
+- Instanced scale independent rendering on GPU
 - Physics simulation with colliders embedded in SVG
 - ECS
 
