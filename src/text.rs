@@ -42,17 +42,22 @@ impl<'a> Font<'a> {
                     .glyph_hor_advance(glyph_id)
                     .ok_or(anyhow!("Font is missing horizontal advance"))? as f32
                     * scale;
+            let side_bearing =
+                self.font.glyph_hor_side_bearing(glyph_id).unwrap_or(0) as f32 * scale;
 
-            meshes.insert(ch, Glyph { mesh, advance });
+            meshes.insert(
+                ch,
+                Glyph {
+                    mesh,
+                    advance,
+                    side_bearing,
+                },
+            );
         }
 
         Ok(FontInstance {
             meshes,
-            horizontal_line_gap: self.font.line_gap() as f32 * scale,
-            vertical_line_gap: self
-                .font
-                .vertical_line_gap()
-                .map(|size| size as f32 * scale),
+            space_width: 1.0 * HEIGHT,
         })
     }
 
@@ -74,9 +79,7 @@ pub struct FontInstance {
     /// List of meshes matching the characters.
     meshes: HashMap<char, Glyph>,
     /// The horizontal font line gap.
-    horizontal_line_gap: f32,
-    /// The vertical font line gap.
-    vertical_line_gap: Option<f32>,
+    space_width: f32,
 }
 
 impl FontInstance {
@@ -94,11 +97,12 @@ impl FontInstance {
         for ch in text.chars() {
             // Find the character
             if let Some(glyph) = self.meshes.get(&ch) {
-                result.push((Instance::new(letter_x, y), glyph.mesh));
+                result.push((Instance::new(letter_x + glyph.side_bearing, y), glyph.mesh));
 
                 letter_x += glyph.advance;
             } else {
                 // Used for not defined letters and whitespace
+                letter_x += self.space_width;
             }
         }
 
@@ -107,11 +111,14 @@ impl FontInstance {
 }
 
 /// A glyph for a character.
+#[derive(Debug)]
 struct Glyph {
     /// The reference to the GPU mesh.
     mesh: Mesh,
     /// The advance of the font.
     advance: f32,
+    /// Horizontal side bearing.
+    side_bearing: f32,
 }
 
 /// Builder struct for creating lyon paths from a font glyph.
