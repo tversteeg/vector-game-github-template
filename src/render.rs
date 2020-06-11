@@ -411,13 +411,19 @@ attribute vec4 a_inst_color;
 varying lowp vec4 color;
 
 void main() {
+    // Rotate vertices around the zero center
     float s = sin(a_inst_rot);
     float c = cos(a_inst_rot);
     mat2 rotation_mat = mat2(c, -s, s, c);
-
     vec2 rotated_pos = a_pos * rotation_mat;
+
+    // Scale the rotated vertices
     vec2 scaled_pos = rotated_pos * a_inst_scale;
-    vec2 pos = scaled_pos + a_inst_pos.xy + u_pan;
+
+    // Offset scaled position with instance position
+    // Offset with the camera multiplied by the Z position
+    vec2 pos = scaled_pos + a_inst_pos.xy + u_pan * a_inst_pos.z;
+
     gl_Position = vec4(pos * vec2(1.0, -1.0) * u_zoom, a_inst_pos.z, 1.0);
 
     color = a_color * a_inst_color;

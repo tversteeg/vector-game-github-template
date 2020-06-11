@@ -6,12 +6,7 @@ mod text;
 mod unit;
 
 use crate::{
-    object::ObjectDef,
-    physics::Physics,
-    render::{Instance, Render},
-    svg::Svg,
-    text::Font,
-    unit::UnitBuilder,
+    object::ObjectDef, physics::Physics, render::Render, svg::Svg, text::Font, unit::UnitBuilder,
 };
 use anyhow::Result;
 use legion::{
@@ -74,10 +69,10 @@ impl Game {
         let mut world = universe.create_world();
 
         // Render a letter
-        font.text("Test test", 0.0, 0.0)
+        font.text("Test test", -800.0, -400.0)
             .into_iter()
             .for_each(|(instance, mesh)| {
-                world.insert((mesh,), vec![({ instance },)]);
+                world.insert((mesh,), vec![(instance,)]);
             });
 
         // Add the ground
@@ -90,7 +85,7 @@ impl Game {
         for i in 0..10 {
             UnitBuilder::ally(&mut character_def)
                 .pos((i * 20) as Float, (-i * 100) as Float)
-                .z(1)
+                .z(3)
                 .spawn(&mut world, &mut physics)
         }
 
