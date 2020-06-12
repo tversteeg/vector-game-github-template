@@ -17,6 +17,7 @@ use miniquad::{
     conf::{Conf, Loading},
     Context, EventHandler, UserData,
 };
+use glsp::Runtime;
 
 type Float = f64;
 type Vec2 = nalgebra::Vector2<Float>;
@@ -39,6 +40,8 @@ struct Game {
     zoom: f32,
     /// The object definition for arrows.
     arrow_def: ObjectDef,
+    /// The scripting runtime
+    runtime: Runtime,
 }
 
 impl Game {
@@ -97,12 +100,16 @@ impl Game {
             .flush()
             .build();
 
+        // Setup the script runtime
+        let runtime = Runtime::new();
+
         Ok(Self {
             render,
             world,
             schedule,
             zoom: 0.0,
             arrow_def,
+            runtime,
         })
     }
 }
