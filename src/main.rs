@@ -17,7 +17,7 @@ use miniquad::{
     conf::{Conf, Loading},
     Context, EventHandler, UserData,
 };
-use glsp::Runtime;
+use glsp::{Val, GFn, Runtime, Root};
 
 type Float = f64;
 type Vec2 = nalgebra::Vector2<Float>;
@@ -102,6 +102,11 @@ impl Game {
 
         // Setup the script runtime
         let runtime = Runtime::new();
+        runtime.run(|| {
+            glsp::eval_multi(&glsp::parse_all(include_str!("../scripts/main.glsp"), None)?, None)?;
+
+            Ok(())
+        });
 
         Ok(Self {
             render,
@@ -112,10 +117,36 @@ impl Game {
             runtime,
         })
     }
+
+    /// Run a GameLisp function.
+    pub fn call(&self, function: &str) -> bool {
+        struct RuntimeResult(bool);
+
+        let result: RuntimeResult = self.runtime.run(|| {
+            let update_func: Root<GFn> = match glsp::global(function) {
+                Ok(Val::GFn(update)) => update,
+                Ok(val) => {
+                    eprintln!("invalid {} function: {}", function, val);
+
+                    return Ok(RuntimeResult(false));
+                }
+                Err(err) => {
+                    eprintln!("error finding {} function: {}", function, err);
+
+                    return Ok(RuntimeResult(false));
+                }
+            };
+            let _: Val = glsp::call(&update_func, &())?;
+
+            Ok(RuntimeResult(true))
+        }).expect("Something unexpected went wrong with calling a GameLisp function");
+
+        result.0
+    }
 }
 
 impl EventHandler for Game {
-    fn update(&mut self, _ctx: &mut Context) {
+    fn update(&mut self, ctx: &mut Context) {
         // Move the physics
         {
             let mut physics = self.world.resources.get_mut::<Physics<f64>>().unwrap();
@@ -126,11 +157,21 @@ impl EventHandler for Game {
         self.schedule.execute(&mut self.world);
 
         self.render.update(&mut self.world);
+
+        // Call the update function in the main script
+        if !self.call("engine:update") {
+            ctx.request_quit();
+        }
     }
 
     fn draw(&mut self, ctx: &mut Context) {
         // Render the buffer
         self.render.render(ctx);
+
+        // Call the render function in the main script
+        if !self.call("engine:render") {
+            ctx.request_quit();
+        }
     }
 
     fn mouse_motion_event(&mut self, _ctx: &mut Context, x: f32, y: f32) {
