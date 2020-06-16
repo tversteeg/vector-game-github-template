@@ -1,9 +1,5 @@
 use anyhow::Result;
-use legion::{
-    filter::filter_fns::tag_value,
-    query::{IntoQuery, Read},
-    world::World,
-};
+use glsp::{bail, lib, rdata, rdata_impls, GResult};
 use lyon::{
     math::Point,
     path::PathEvent,
@@ -19,10 +15,13 @@ use usvg::Color;
 
 const MAX_MESH_INSTANCES: usize = 1024 * 1024;
 
+rdata! {
 /// A reference to an uploaded vector path.
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub struct Mesh(usize);
+}
 
+lib! {
 /// A wrapper around the OpenGL calls so the main file won't be polluted.
 pub struct Render {
     /// The OpenGL pipeline for the pass rendering to the render target.
@@ -34,6 +33,7 @@ pub struct Render {
 
     camera_pan: (f32, f32),
     camera_zoom: f32,
+}
 }
 
 impl Render {
@@ -144,29 +144,6 @@ impl Render {
         Ok(Mesh(self.draw_calls.len() - 1))
     }
 
-    /// Update the instances for each draw call.
-    pub fn update(&mut self, world: &mut World) {
-        // Get all instances and meshes
-        self.draw_calls
-            .iter_mut()
-            .enumerate()
-            .for_each(|(index, mut draw_call)| {
-                let mesh = Mesh(index);
-
-                // Get the meshes belongin to the draw call
-                let query = <Read<Instance>>::query().filter(tag_value(&mesh));
-
-                // Copy the instances from legion to the draw call
-                // TODO add a better mechanism to detect manual changes
-                if !draw_call.refresh_instances {
-                    draw_call.instances = query.iter(world).map(|pos| *pos).collect();
-
-                    // Tell the render loop that the position of the instances have been changed
-                    draw_call.refresh_instances = true;
-                }
-            });
-    }
-
     /// Render the graphics.
     pub fn render(&mut self, ctx: &mut Context) {
         let (width, height) = ctx.screen_size();
@@ -274,6 +251,7 @@ pub struct Vertex {
     color: [f32; 4],
 }
 
+rdata! {
 #[repr(C)]
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub struct Instance {
@@ -282,6 +260,14 @@ pub struct Instance {
     scale: f32,
     color: [f32; 3],
     alpha: f32,
+}
+
+meths {
+    get "x": Instance::x,
+    set "x": Instance::set_x,
+    get "y": Instance::y,
+    set "y": Instance::set_y,
+}
 }
 
 impl Instance {

@@ -1,10 +1,5 @@
 use crate::{render::Instance, Float};
 use generational_arena::Index;
-use legion::{
-    query::{IntoQuery, Read, Write},
-    schedule::Schedulable,
-    system::SystemBuilder,
-};
 use nalgebra::{convert as f, RealField, Vector2};
 use ncollide2d::shape::{Shape, ShapeHandle};
 use nphysics2d::{
@@ -118,22 +113,6 @@ impl<N: RealField> Physics<N> {
             .margin(f(0.1))
             .density(f(0.2))
             .material(MaterialHandle::new(BasicMaterial::new(f(0.1), f(0.5))))
-    }
-
-    /// Get the system for updating the render instance positions.
-    pub fn render_system() -> Box<dyn Schedulable> {
-        SystemBuilder::new("update_positions")
-            .read_resource::<Physics<Float>>()
-            .with_query(<(Write<Instance>, Read<RigidBody>)>::query())
-            .build(|_, mut world, physics, query| {
-                for (mut instance, rigid_body) in query.iter(&mut world) {
-                    if let Some((x, y, rotation)) = physics.position(&rigid_body) {
-                        instance.set_x(x as f32);
-                        instance.set_y(y as f32);
-                        instance.set_rotation(rotation as f32);
-                    }
-                }
-            })
     }
 }
 

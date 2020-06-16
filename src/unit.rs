@@ -1,5 +1,9 @@
-use crate::{object::ObjectDef, physics::Physics, Float, Vec2};
-use legion::world::World;
+use crate::{
+    object::ObjectDef,
+    physics::{Physics, RigidBody},
+    render::Instance,
+    Float, Vec2,
+};
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum Allegiance {
@@ -54,13 +58,8 @@ impl<'a> UnitBuilder<'a> {
     }
 
     /// Spawn the unit in the world.
-    pub fn spawn(self, world: &mut World, physics: &mut Physics<Float>) {
-        let (instance, rigid_body) = self.def.spawn(physics, self.pos, self.z);
-
-        world.insert(
-            (self.def.mesh(),),
-            vec![(instance, rigid_body, self.health, self.allegiance)],
-        );
+    pub fn spawn(self, physics: &mut Physics<Float>) -> (Instance, RigidBody) {
+        self.def.spawn(physics, self.pos, self.z)
     }
 
     /// Set the lifepoints of the unit.

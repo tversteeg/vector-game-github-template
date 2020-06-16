@@ -19,7 +19,6 @@ is-it-maintained-open-issues = { repository = "tversteeg/replace_me" }
 anyhow = "1.0.31"
 generational-arena = "0.2.8"
 glsp = "0.1.0"
-legion = { version = "0.2.2", default-features = false }
 lyon = "0.15.8"
 miniquad = "0.3.0-alpha.9"
 ttf-parser = "0.6.1"
