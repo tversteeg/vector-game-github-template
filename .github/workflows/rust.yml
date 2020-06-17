@@ -33,7 +33,7 @@ jobs:
         uses: actions-rs/toolchain@v1
         with:
           profile: default
-          toolchain: stable
+          toolchain: nightly
           override: true
 
       - name: cargo check
@@ -58,7 +58,7 @@ jobs:
         uses: actions-rs/toolchain@v1
         with:
           profile: minimal
-          toolchain: stable
+          toolchain: nightly
           override: true
           target: wasm32-unknown-unknown
 
@@ -111,7 +111,7 @@ jobs:
         uses: actions-rs/toolchain@v1
         with:
           profile: minimal
-          toolchain: stable
+          toolchain: nightly
           override: true
           target: ${{ matrix.target }}
 
