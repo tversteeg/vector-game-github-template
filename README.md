@@ -8,6 +8,7 @@
 - Instanced scale independent rendering on GPU
 - Physics simulation with colliders embedded in SVG
 - ECS
+- GameLisp scripting
 
 ## How to use
 
