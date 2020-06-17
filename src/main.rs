@@ -57,7 +57,7 @@ impl Game {
         )?;
 
         // Instantiate the physics engine
-        let mut physics = Physics::new(9.81 * 100.0);
+        let physics = Physics::new(9.81 * 100.0);
 
         // Setup the script runtime
         let runtime = Runtime::new();

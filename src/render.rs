@@ -1,5 +1,5 @@
 use anyhow::Result;
-use glsp::{bail, lib, rdata, rdata_impls, GResult};
+use glsp::{bail, lib, rdata, rdata_impls, rfn, GResult, Runtime};
 use lyon::{
     math::Point,
     path::PathEvent,
@@ -203,6 +203,16 @@ impl Render {
     pub fn set_camera_zoom(&mut self, zoom: f32) {
         self.camera_zoom = zoom;
     }
+
+    /// Bind the GameLisp functions.
+    pub fn bind_functions(runtime: &Runtime) {
+        runtime.run(|| {
+            glsp::bind_rfn("set_camera_pos", rfn!(Self::set_camera_pos))?;
+            glsp::bind_rfn("set_camera_zoom", rfn!(Self::set_camera_zoom))?;
+
+            Ok(())
+        });
+    }
 }
 
 /// A single uploaded mesh as a draw call.
@@ -252,6 +262,7 @@ pub struct Vertex {
 }
 
 rdata! {
+/// Instance of a mesh.
 #[repr(C)]
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub struct Instance {
@@ -267,6 +278,12 @@ meths {
     set "x": Instance::set_x,
     get "y": Instance::y,
     set "y": Instance::set_y,
+    get "z": Instance::z,
+    set "z": Instance::set_z,
+    get "rotation": Instance::rotation,
+    set "set_rotation": Instance::set_rotation,
+    get "color_multiplier": Instance::color_multiplier,
+    set "set_color_multiplier": Instance::set_color_multiplier,
 }
 }
 
